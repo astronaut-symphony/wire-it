@@ -1,0 +1,53 @@
+/* Component editor page (opened in its own tab) */
+.cepage button { padding: 4px 10px; cursor: pointer; }
+.cepage button.primary { background: #2563eb; color: #fff; border: 0; border-radius: 4px; }
+.cepage button:disabled { opacity: 0.5; cursor: default; }
+.modal { position: fixed; inset: 0; background: #0006; display: grid; place-items: center; z-index: 10; }
+.dialog { background: #fff; padding: 16px; border-radius: 8px; max-height: 94vh; overflow: auto; max-width: 96vw; }
+.dialog h2 { margin: 0 0 8px; }
+.fields { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-bottom: 8px; }
+.fields label { display: flex; gap: 4px; align-items: center; }
+.fields input[type='number'] { width: 64px; }
+.hint { color: #555; margin: 4px 0; }
+.err { color: #b00; }
+.actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 12px; }
+/* component editor page (own tab) */
+.cepage { display: flex; flex-direction: column; gap: 10px; height: 100%; padding: 12px 16px; }
+.cebar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+.cebar label { display: flex; align-items: center; gap: 6px; }
+.btn { padding: 4px 10px; border: 1px solid #767676; border-radius: 4px; background: #efefef; cursor: pointer; }
+.cebody { flex: 1; min-height: 0; display: flex; gap: 16px; }
+.cemain { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 8px; }
+.ceview { flex: 1; min-height: 240px; overflow: auto; display: flex; border: 1px solid #aaa; background: #fff; }
+/* auto margins centre the image, and unlike justify/align-center they never clip it when it is zoomed past the view */
+.cepad { position: relative; flex: none; margin: auto; padding: 24px; }
+.cestage { position: relative; user-select: none; outline: 1px dashed #cbd5e1; }
+.cetools { display: flex; flex-wrap: wrap; gap: 8px; }
+.cegroup { display: flex; align-items: center; gap: 4px; padding: 4px 8px; border: 1px solid #cbd5e1; border-radius: 6px; background: #f8fafc; }
+.cegroup > span:first-child { font-size: 12px; color: #475569; margin-right: 2px; }
+.cegroup input.mm { width: 78px; text-align: right; font-variant-numeric: tabular-nums; }
+.cegroup .val { min-width: 56px; text-align: center; font-variant-numeric: tabular-nums; }
+.ceside { flex: 0 0 320px; overflow: auto; border-left: 1px solid #ddd; padding-left: 12px; }
+.ceside h3 { margin: 0 0 6px; font-size: 14px; }
+.ceside .bulk { display: flex; gap: 6px; align-items: center; }
+.phead, .prow { display: grid; grid-template-columns: 34px 1fr 52px 26px; gap: 4px; align-items: center; margin-bottom: 4px; }
+.phead { font-size: 12px; color: #666; position: sticky; top: 0; background: #fff; }
+.prow { padding: 1px 2px; border-radius: 4px; cursor: pointer; }
+.prow.sel { background: #dbeafe; }
+.prow .no { text-align: center; font-variant-numeric: tabular-nums; }
+.prow input, .prow select { min-width: 0; width: 100%; }
+.prow button { padding: 2px 0; }
+.cefooter { display: flex; align-items: center; justify-content: flex-end; gap: 12px; }
+.pdot { position: absolute; width: 10px; height: 10px; margin: -5px 0 0 -5px; border-radius: 50%; background: #f5b700; border: 1px solid #333; cursor: pointer; }
+.pdot.sel { background: #60a5fa; border-color: #1d4ed8; }
+.pdot .dir { position: absolute; left: 4px; top: 3px; width: 14px; height: 2px; background: #f97316; transform-origin: 0 50%; pointer-events: none; }
+.grab { position: absolute; width: 18px; height: 18px; margin: -9px 0 0 -9px; border-radius: 50%; border: 2px solid #2563eb; background: #fffc; cursor: move; z-index: 2; touch-action: none; }
+/* pin number next to each pin in the editor: above the pin for a horizontal run, to its right for a vertical one */
+.pno { position: absolute; font: 600 11px/1 system-ui, sans-serif; text-decoration: none; color: #0f172a; background: #fffe; border: 1px solid #94a3b8; border-radius: 3px; padding: 1px 3px; white-space: nowrap; pointer-events: none; z-index: 1; }
+.pno.h { left: 50%; bottom: 100%; transform: translate(-50%, -3px); }
+.pno.v { left: 100%; top: 50%; transform: translate(4px, -50%); }
+.pdot.sel .pno { background: #dbeafe; border-color: #1d4ed8; }
+/* alignment guides while a pin group snaps to existing pins */
+.guide { position: absolute; pointer-events: none; z-index: 1; }
+.guide.v { top: 0; bottom: 0; width: 0; border-left: 1px dashed #f43f5e; }
+.guide.h { left: 0; right: 0; height: 0; border-top: 1px dashed #f43f5e; }

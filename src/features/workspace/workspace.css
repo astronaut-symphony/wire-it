@@ -1,0 +1,47 @@
+/* Workspace: the wiring canvas page. Selectors are scoped under .workspace so they cannot leak into other pages. */
+.workspace { display: grid; grid-template-columns: 220px 1fr; grid-template-rows: auto 1fr; height: 100%; }
+.workspace > header { grid-column: 1 / -1; }
+/* min-height: 0 lets the row shrink so the library scrolls instead of pushing the button off screen */
+.workspace > aside { min-height: 0; border-right: 1px solid #ddd; padding: 8px; display: flex; flex-direction: column; gap: 8px; overflow: hidden; }
+.lib { flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 6px; }
+.lib summary { display: flex; align-items: center; gap: 4px; padding: 4px 2px; font-size: 12px; font-weight: 600; color: #555; cursor: pointer; list-style: none; user-select: none; }
+.lib summary::-webkit-details-marker { display: none; }
+.lib details:not([open]) summary svg { transform: rotate(-90deg); }
+.lib .group { display: flex; flex-direction: column; gap: 6px; padding: 2px 0 8px; }
+.item { display: flex; align-items: center; gap: 8px; padding: 4px; border: 1px solid #ddd; border-radius: 4px; cursor: grab; }
+.item img { width: 40px; height: 32px; object-fit: contain; }
+.item span { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.workspace main { display: flex; flex-direction: column; min-width: 0; min-height: 0; }
+.workspace header { display: flex; align-items: center; gap: 8px; padding: 8px; border-bottom: 1px solid #ddd; flex-wrap: wrap; }
+.spacer { flex: 1; }
+.canvas { position: relative; flex: 1; min-height: 0; }
+.pin.react-flow__handle { width: 7.2px; height: 7.2px; /* = PIN in types.ts */ min-width: 0; min-height: 0; background: #f5b700; border: 1px solid #333; }
+.ctx { position: fixed; z-index: 20; min-width: 180px; background: #fff; border: 1px solid #ccc; border-radius: 6px; box-shadow: 0 4px 16px #0003; padding: 4px; display: flex; flex-direction: column; }
+.ctx button { cursor: pointer; display: flex; align-items: center; gap: 8px; text-align: left; border: 0; background: none; padding: 6px 10px; border-radius: 4px; }
+.ctx button:disabled { cursor: default; }
+.ctx button:hover:not(:disabled) { background: #eef2ff; }
+.ctx button.danger { color: #b91c1c; }
+.bend { fill: #fff; stroke: #2563eb; stroke-width: 2; pointer-events: none; }
+/* react-flow edges use pointer-events:visibleStroke, so a fill-only shape never gets events */
+.bendhit { fill: transparent; cursor: move; pointer-events: all; }
+.bendhit.h { cursor: ns-resize; }
+.bendhit.v { cursor: ew-resize; }
+.bendwrap:hover .bend { fill: #2563eb; }
+.cap { position: absolute; top: -16px; left: 0; font-size: 11px; color: #333; white-space: nowrap; }
+.missing { padding: 8px; border: 1px dashed red; color: red; }
+.jnode { position: relative; width: 14px; height: 14px; }
+.jhandle.react-flow__handle { width: 14px; height: 14px; min-width: 0; min-height: 0; box-sizing: border-box; border: 0; border-radius: 50%; background: transparent; cursor: crosshair; }
+.jcore { position: absolute; left: 4px; top: 4px; width: 6px; height: 6px; border-radius: 50%; pointer-events: none; }
+.exporting .bendwrap { display: none; }
+/* submenu: opens to the right of its row while hovered (flipped to the left near the screen edge) */
+.ctx-item { position: relative; }
+.ctx-item > .ctx.sub { display: none; position: absolute; left: 100%; top: -5px; margin-left: -2px; }
+.ctx-item > .ctx.sub.flip { left: auto; right: 100%; margin: 0 -2px 0 0; }
+.ctx-item:hover > .ctx.sub { display: flex; }
+.ctx button.has-sub { justify-content: space-between; gap: 12px; width: 100%; }
+.ctx .lbl { display: flex; align-items: center; gap: 8px; }
+.ctx-item:hover > button.has-sub { background: #eef2ff; }
+/* project name over the top-left of the canvas */
+.projname { position: absolute; top: 10px; left: 12px; z-index: 6; padding: 3px 10px; border-radius: 8px; background: #ffffffd9; box-shadow: 0 1px 4px #0f172a22; user-select: none; }
+/* react-flow forces fill:currentColor on its control icons, which would fill our stroke-based icons */
+.react-flow__controls .lucide-ctl svg { fill: none; stroke: currentColor; max-width: 14px; max-height: 14px; }
