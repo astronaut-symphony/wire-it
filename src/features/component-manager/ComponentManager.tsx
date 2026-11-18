@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { ActionIcon, Badge, Button, Group, Text, Title } from '@mantine/core';
-import { Download, Pencil, Trash2, Upload } from 'lucide-react';
+import { Download, Pencil, Plus, Trash2, Upload } from 'lucide-react';
 import { update } from 'idb-keyval';
+import { NewComponentModal } from '@/features/workspace/NewComponentModal';
 import { CHANNEL } from '@/shared/lib/inbox';
 import { download } from '@/features/workspace/lib/export';
 import { mergeImported, parseComponents, serializeComponents } from '@/features/projects/model';
@@ -20,6 +21,7 @@ export function ComponentManager() {
   const [customs, setCustoms] = useState<Component[]>([]);
   const [used, setUsed] = useState(new Set<string | undefined>());
   const [msg, setMsg] = useState('');
+  const [creating, setCreating] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
   const load = useCallback(async () => {
@@ -91,14 +93,20 @@ export function ComponentManager() {
     <div className="manage">
       <Group justify="space-between" mb="md">
         <Title order={3}>Manage components</Title>
-        <Button leftSection={<Upload size={14} />} onClick={() => fileRef.current?.click()}>
-          Import
-        </Button>
+        <Group gap="xs">
+          <Button variant="default" leftSection={<Upload size={14} />} onClick={() => fileRef.current?.click()}>
+            Import
+          </Button>
+          <Button leftSection={<Plus size={14} />} onClick={() => setCreating(true)}>
+            Create
+          </Button>
+        </Group>
         <input ref={fileRef} type="file" accept=".json,application/json" hidden onChange={(e) => (void importFile(e.target.files?.[0]), (e.target.value = ''))} />
       </Group>
       {msg && <Text size="sm" mb="md">{msg}</Text>}
-      {section('My components', customs.filter((c) => !c.imported), 'None yet. Create one from the Components panel.')}
+      {section('My components', customs.filter((c) => !c.imported), 'None yet. Use Create to make one.')}
       {section('Imported', customs.filter((c) => c.imported), 'Nothing imported. Use Import to add a components file.')}
+      <NewComponentModal opened={creating} onClose={() => setCreating(false)} />
     </div>
   );
 }
