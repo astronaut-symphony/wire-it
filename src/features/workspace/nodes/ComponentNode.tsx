@@ -2,15 +2,13 @@ import { useContext, useEffect, useRef, type PointerEvent } from 'react';
 import { Comps } from '@/features/workspace/context/comps';
 import { Handle, useReactFlow, type NodeProps } from '@xyflow/react';
 import { DIR_POS, compSize, pinDir, rotDir, rotPt } from '@/shared/lib/geometry';
-import { pinText } from '@/shared/types';
+import { LABEL_HOME, pinText } from '@/shared/types';
 import { svgUrl } from '@/shared/lib/importImage';
 import '@/features/workspace/workspace.css';
 
 type Pos = { x: number; y: number };
-// the name + value box is anchored by its bottom-left corner, so a value grows it upwards; home = just above the top-left corner
-const LABEL_HOME: Pos = { x: 0, y: -2 };
-
-export function ComponentNode({ id, data }: NodeProps) {
+// the name + value box is anchored by its bottom-left corner, so a value grows it upwards (home: see LABEL_HOME)
+export function ComponentNode({ id, data, selected }: NodeProps) {
   const { componentId, label, value, rot = 0, labelRot = 0, labelPos = LABEL_HOME, movingLabel } = data as {
     componentId: string; label?: string; value?: string; rot?: number; labelRot?: number; labelPos?: Pos; movingLabel?: boolean;
   };
@@ -46,6 +44,7 @@ export function ComponentNode({ id, data }: NodeProps) {
   const r = compSize(c, rot); // size of the node box after rotation
   return (
     <div style={{ width: r.w, height: r.h, position: 'relative' }}>
+      {selected && <div className="selbox" />}
       <div
         ref={capRef}
         className={`cap${movingLabel ? ' moving nodrag nopan' : ''}`}

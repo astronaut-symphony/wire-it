@@ -27,4 +27,5 @@ export type Project = { version: 1; name?: string; components: Component[]; node
 
 export const PIN = 7.2; // size of a component's pin dot, px (kept in step with .pin in styles.css)
 export const JR = 7; // half the size of a junction dot node
+export const LABEL_HOME = { x: 0, y: -10 }; // where a component's name/value box hangs from (its bottom-left corner) until moved: above the 6px selection frame
 export const MM = 4; // canvas px per mm; 2.54mm pitch = ~10px

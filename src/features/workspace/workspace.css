@@ -29,6 +29,8 @@
 .bendhit.v { cursor: ew-resize; }
 .bendwrap:hover .bend { fill: #2563eb; }
 .cap.moving { cursor: move; outline: 1px dashed #2563eb; background: #eff6ff; padding: 0 3px; margin: -1px -4px; }
+/* a selected component: a dashed frame a few px outside it (clicks go through to the component) */
+.selbox { position: absolute; inset: -6px; border: 1px dashed #2563eb; border-radius: 3px; pointer-events: none; }
 .capval { font-size: 10px; color: #9ca3af; }
 .cap { position: absolute; font-size: 11px; color: #333; white-space: nowrap; }
 .missing { padding: 8px; border: 1px dashed red; color: red; }

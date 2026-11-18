@@ -1,5 +1,6 @@
 import { getNodesBounds, getViewportForBounds, type Edge, type Node, type Rect } from '@xyflow/react';
 import { toPng } from 'html-to-image';
+import { LABEL_HOME } from '@/shared/types';
 
 export function download(name: string, data: BlobPart, type = '') {
   const a = document.createElement('a');
@@ -37,17 +38,18 @@ export function diagramBounds(nodes: Node[], edges: Edge[]): Rect {
   } else {
     for (const e of edges) for (const p of (e.data as { points?: { x: number; y: number }[] } | undefined)?.points ?? []) grow(p.x, p.y);
   }
-  // a label moved away from its component can sit outside the node box (width is a rough guess from the text length)
+  // a component's label sits outside its node box, moved or not (width is a rough guess from the text length)
   for (const n of nodes) {
     const d = n.data as { label?: string; value?: string; labelPos?: { x: number; y: number }; labelRot?: number };
-    if (n.type !== 'comp' || !d.labelPos) continue;
+    if (n.type !== 'comp') continue;
+    const pos = d.labelPos ?? LABEL_HOME;
     // the box hangs from its bottom-left corner (the pivot): x 0..w, y -h..0 before turning; an unnamed label is guessed at 12 characters
     const [w, h] = [Math.max(d.label?.length || 12, d.value?.length ?? 0) * 7, d.value ? 28 : 14];
     const t = ((d.labelRot ?? 0) * Math.PI) / 180;
     const [c, s] = [Math.round(Math.cos(t)), Math.round(Math.sin(t))]; // always a quarter turn, so exact
     const corners = [0, w].flatMap((x) => [-h, 0].map((y) => [x * c - y * s, x * s + y * c]));
     const [xs, ys] = [corners.map((p) => p[0]), corners.map((p) => p[1])];
-    grow(n.position.x + d.labelPos.x + Math.min(...xs), n.position.y + d.labelPos.y + Math.min(...ys), Math.max(...xs) - Math.min(...xs), Math.max(...ys) - Math.min(...ys));
+    grow(n.position.x + pos.x + Math.min(...xs), n.position.y + pos.y + Math.min(...ys), Math.max(...xs) - Math.min(...xs), Math.max(...ys) - Math.min(...ys));
   }
   const pad = 30;
   return { x: x1 - pad, y: y1 - pad, width: x2 - x1 + 2 * pad, height: y2 - y1 + 2 * pad };
