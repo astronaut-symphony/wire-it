@@ -1,6 +1,7 @@
 import { useState } from 'react';
-import { ActionIcon, Button, Card, Container, FileButton, Group, Menu, Modal, SimpleGrid, Stack, Text, TextInput, Title } from '@mantine/core';
+import { ActionIcon, Button, Card, Container, FileButton, Group, Menu, SimpleGrid, Stack, Text, TextInput, Title } from '@mantine/core';
 import { Cpu, Ellipsis, FileInput, Pencil, Plus, Trash2 } from 'lucide-react';
+import { AppModal } from '@/shared/components/AppModal';
 import { Brand } from '@/shared/components/Brand';
 import './home.css';
 
@@ -119,42 +120,54 @@ export function Home({ projects, onOpen, onNew, onRename, onDelete, onImport }: 
         )}
       </Container>
 
-      <Modal opened={dialog?.kind === 'rename'} onClose={close} title="Rename project" centered>
+      <AppModal
+        opened={dialog?.kind === 'rename'}
+        onClose={close}
+        title="Rename project"
+        footer={
+          <>
+            <Button variant="default" onClick={close}>
+              Cancel
+            </Button>
+            <Button onClick={commitRename} disabled={!text.trim()}>
+              Save
+            </Button>
+          </>
+        }
+      >
         <TextInput
           data-autofocus
           value={text}
           onChange={(e) => setText(e.currentTarget.value)}
           onKeyDown={(e) => e.key === 'Enter' && commitRename()}
         />
-        <Group justify="flex-end" mt="md">
-          <Button variant="default" onClick={close}>
-            Cancel
-          </Button>
-          <Button onClick={commitRename} disabled={!text.trim()}>
-            Save
-          </Button>
-        </Group>
-      </Modal>
+      </AppModal>
 
-      <Modal opened={dialog?.kind === 'delete'} onClose={close} title="Delete project" centered>
+      <AppModal
+        opened={dialog?.kind === 'delete'}
+        onClose={close}
+        title="Delete project"
+        footer={
+          <>
+            <Button variant="default" onClick={close}>
+              Cancel
+            </Button>
+            <Button
+              color="red"
+              onClick={() => {
+                if (dialog) onDelete(dialog.id);
+                close();
+              }}
+            >
+              Delete
+            </Button>
+          </>
+        }
+      >
         <Text size="sm">
           Delete <b>{target?.name}</b>? Its components and wires are removed from this browser. Save it to JSON first if you still need it.
         </Text>
-        <Group justify="flex-end" mt="md">
-          <Button variant="default" onClick={close}>
-            Cancel
-          </Button>
-          <Button
-            color="red"
-            onClick={() => {
-              if (dialog) onDelete(dialog.id);
-              close();
-            }}
-          >
-            Delete
-          </Button>
-        </Group>
-      </Modal>
+      </AppModal>
     </div>
   );
 }

@@ -1,6 +1,7 @@
 import { useState, type DragEvent } from 'react';
-import { Button, Modal, Stack, Text, TextInput } from '@mantine/core';
+import { Button, Stack, Text, TextInput } from '@mantine/core';
 import { ImagePlus } from 'lucide-react';
+import { AppModal } from '@/shared/components/AppModal';
 import { importImage, svgUrl, type Imported } from '@/shared/lib/importImage';
 import { stashDraft } from '@/shared/lib/inbox';
 import { routePath } from '@/features/projects/route';
@@ -43,7 +44,21 @@ export function NewComponentModal({ opened, onClose }: { opened: boolean; onClos
   }
 
   return (
-    <Modal opened={opened} onClose={close} title="New component" centered>
+    <AppModal
+      opened={opened}
+      onClose={close}
+      title="New component"
+      footer={
+        <>
+          <Button variant="default" onClick={close}>
+            Cancel
+          </Button>
+          <Button disabled={!img || !name.trim()} onClick={() => void create()}>
+            Create
+          </Button>
+        </>
+      }
+    >
       <Stack gap="sm">
         <TextInput label="Component name" value={name} onChange={(e) => setName(e.currentTarget.value)} data-autofocus />
         <label
@@ -70,10 +85,7 @@ export function NewComponentModal({ opened, onClose }: { opened: boolean; onClos
             {err}
           </Text>
         )}
-        <Button disabled={!img || !name.trim()} onClick={() => void create()}>
-          Create
-        </Button>
       </Stack>
-    </Modal>
+    </AppModal>
   );
 }

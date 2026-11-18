@@ -35,7 +35,8 @@ import { ComponentNode } from '@/features/workspace/nodes/ComponentNode';
 import { JunctionNode } from '@/features/workspace/nodes/JunctionNode';
 import { ProjectTitle } from '@/features/workspace/ProjectTitle';
 import { Sidebar } from '@/features/workspace/Sidebar';
-import { Button, Group, Modal, Text } from '@mantine/core';
+import { Button, Text } from '@mantine/core';
+import { AppModal } from '@/shared/components/AppModal';
 import { PromptModal, type Ask } from '@/features/workspace/PromptModal';
 import { Toolbar, WIRE_COLORS } from '@/features/workspace/Toolbar';
 import { compSize, rotPt, snapByPin } from '@/shared/lib/geometry';
@@ -370,7 +371,17 @@ function Shell() {
             )
           )}
           <PromptModal ask={ask} onClose={() => setAsk(null)} />
-          <Modal opened={review.length > 0} onClose={() => go({ kind: 'home' })} title="Components were updated" centered>
+          <AppModal
+            opened={review.length > 0}
+            onClose={() => go({ kind: 'home' })}
+            title="Components were updated"
+            footer={
+              <>
+                <Button variant="default" onClick={() => go({ kind: 'home' })}>Cancel</Button>
+                <Button onClick={acceptReview}>Update project</Button>
+              </>
+            }
+          >
             <Text size="sm" mb="sm">Some components in this project were edited after it was last saved.</Text>
             {review.map((r) => (
               <div key={r.id}>
@@ -381,17 +392,10 @@ function Shell() {
               </div>
             ))}
             <Text size="xs" c="dimmed" mt="sm">Pins may also have moved, so wires can shift a little.</Text>
-            <Group justify="flex-end" mt="md">
-              <Button variant="default" onClick={() => go({ kind: 'home' })}>Cancel</Button>
-              <Button onClick={acceptReview}>Update project</Button>
-            </Group>
-          </Modal>
-          <Modal opened={!!notice} onClose={() => setNotice('')} title="Something went wrong" centered size="sm">
+          </AppModal>
+          <AppModal opened={!!notice} onClose={() => setNotice('')} title="Something went wrong" size="sm" footer={<Button onClick={() => setNotice('')}>OK</Button>}>
             <Text size="sm">{notice}</Text>
-            <Group justify="flex-end" mt="md">
-              <Button onClick={() => setNotice('')}>OK</Button>
-            </Group>
-          </Modal>
+          </AppModal>
         </Actions.Provider>
       </MenuCtx.Provider>
     </Comps.Provider>

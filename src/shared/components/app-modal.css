@@ -1,0 +1,4 @@
+.amodal-head { padding: 14px 20px; border-bottom: 1px solid #e2e8f0; min-height: 0; }
+.amodal-title { font-size: 16px; font-weight: 600; }
+.amodal-content { padding: 16px 20px; }
+.amodal-foot { display: flex; justify-content: flex-end; gap: 8px; padding: 12px 20px; border-top: 1px solid #e2e8f0; }

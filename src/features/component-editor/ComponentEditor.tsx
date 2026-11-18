@@ -1,6 +1,10 @@
 import { Fragment, useEffect, useLayoutEffect, useRef, useState, type MouseEvent, type PointerEvent, type ReactNode } from 'react';
-import { ArrowDown, ChevronDown, ArrowLeft, ArrowRight, ArrowUp, FlipHorizontal, FlipVertical, ImagePlus, Minus, Move, Plus, RotateCw, Save, Trash2, X } from 'lucide-react';
-import { Menu } from '@mantine/core';
+import { DndContext, PointerSensor, closestCenter, useSensor, useSensors, type DragEndEvent } from '@dnd-kit/core';
+import { SortableContext, arrayMove, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
+import { ArrowDown, GripVertical, ChevronDown, ArrowLeft, ArrowRight, ArrowUp, FlipHorizontal, FlipVertical, ImagePlus, Minus, Move, Plus, RotateCw, Save, Trash2, X } from 'lucide-react';
+import { Button, Menu, Text } from '@mantine/core';
+import { AppModal } from '@/shared/components/AppModal';
 import { PITCHES } from './pitches';
 import { ROTATE, groupPins, mirror, mirrorDir, snapOrigin, type Group, type GroupDir } from './pins';
 import { importImage, rotateImage, svgUrl, type Imported } from '@/shared/lib/importImage';
@@ -20,10 +24,15 @@ const DIRS: [PinDir, string, ReactNode][] = [
   ['free', 'Free', <Move size={14} />],
 ];
 const ANGLE: Record<Dir, number> = { right: 0, down: 90, left: 180, up: 270 };
-const GROUP_DIRS: [GroupDir, string][] = [['right', 'right'], ['down', 'down'], ['left', 'left'], ['up', 'up']];
+const GROUP_DIRS: [GroupDir, string, ReactNode][] = [
+  ['right', 'Right', <ArrowRight size={14} />],
+  ['down', 'Down', <ArrowDown size={14} />],
+  ['left', 'Left', <ArrowLeft size={14} />],
+  ['up', 'Up', <ArrowUp size={14} />],
+];
 type Pt = { x: number; y: number };
-// per-pin edits, keyed `${groupId}:${k}`; `id` is the pin's id in the saved component ("p3" = pin 3). It is given
-// when the pin is added and never changes or gets reused, so wires on the canvas stay on their pin
+// per-pin edits, keyed `${groupId}:${k}`; `id` is the pin's hidden id in the saved component ("p3"). It is given when the
+// pin is added and never changes or gets reused, so wires on the canvas stay on their pin even when the numbers shift
 type Ovr = { label?: string; dir?: PinDir; id?: string };
 const pinNo = (id?: string) => {
   const m = /^p(\d+)$/.exec(id ?? '');
@@ -144,11 +153,15 @@ export function ComponentEditor({ id }: { id: string }) { // id 'new' starts fro
     return () => v.removeEventListener('wheel', onWheel);
   }, [img === null]); // the view only exists once an image is loaded
 
-  // every pin of every group, shown by its id number: deleting one leaves a gap, the others keep theirs
-  const pins = (img ? groups.flatMap((g) => groupPins(g, imgW, aspect).map((p) => ({ ...p, gid: g.id, key: `${g.id}:${p.k}`, horiz: g.dir === 'right' || g.dir === 'left' }))) : []).map(
+  // every pin of every group, numbered 1..n in order (no gaps: deleting one renumbers the rest). The number is only
+  // what is shown and saved as the pin's name; wires on the canvas hold on to the hidden id (see Ovr)
+  const pins = (img ? groups.flatMap((g) => groupPins(g, imgW, aspect).map((p) => ({ ...p, gid: g.id, key: `${g.id}:${p.k}`, run: g.dir }))) : []).map(
     (p, i) => {
       const o = ovr[p.key];
-      return { ...p, id: o?.id ?? p.key, no: pinNo(o?.id) ?? i + 1, label: o?.label ?? '', dir: o?.dir ?? autoDir(clamp01(p.x), clamp01(p.y), img!.w, img!.h) };
+      const dir = o?.dir ?? autoDir(clamp01(p.x), clamp01(p.y), img!.w, img!.h);
+      // the label of a free pin has no wire direction to follow: it goes across the header's run, out of the component
+      const across: Dir = p.run === 'right' || p.run === 'left' ? (p.y < 0.5 ? 'up' : 'down') : p.x < 0.5 ? 'left' : 'right';
+      return { ...p, id: o?.id ?? p.key, no: i + 1, label: o?.label ?? '', dir, lbl: dir === 'free' ? across : dir };
     },
   );
 
@@ -192,6 +205,45 @@ export function ComponentEditor({ id }: { id: string }) { // id 'new' starts fro
     if (!g) return;
     if (g.skip.length + 1 >= g.count * g.rows) return dropGroup(gid);
     setGroups((gs) => gs.map((x) => (x.id === gid ? { ...x, skip: [...x.skip, k] } : x)));
+    setSaved(false);
+  }
+  // one more pin right after the last pin of every row. A slot freed by deleting pins at the end of a row is used again
+  // (the new pin does not jump over it); the group only gets longer when a row has no free slot at its end. Pins are keyed
+  // by row * count + index, so when the count grows the keys after the first row move along with it.
+  function addPin(gid: string) {
+    const g = groups.find((x) => x.id === gid);
+    if (!g) return;
+    const at = Array.from({ length: g.rows }, (_, r) => {
+      let last = -1;
+      for (let i = 0; i < g.count; i++) if (!g.skip.includes(r * g.count + i)) last = i;
+      return last + 1; // index of the new pin in this row
+    });
+    const count = at.some((i) => i === g.count) ? g.count + 1 : g.count;
+    const moved = (k: number) => Math.floor(k / g.count) * count + (k % g.count);
+    let skip = g.skip.map(moved);
+    const fresh: Record<string, Ovr> = {};
+    at.forEach((i, r) => {
+      skip = skip.filter((k) => k !== r * count + i); // a freed slot comes back
+      fresh[`${gid}:${r * count + i}`] = { id: `p${nextNo + r}` };
+      if (count > g.count && i < g.count) skip.push(r * count + g.count); // this row does not need the new column
+    });
+    setGroups((gs) => gs.map((x) => (x.id === gid ? { ...x, count, skip } : x)));
+    setOvr((o) => {
+      const out: Record<string, Ovr> = {};
+      for (const [key, v] of Object.entries(o)) {
+        const [owner, k] = key.split(':');
+        out[owner === gid ? `${owner}:${moved(Number(k))}` : key] = v;
+      }
+      return { ...out, ...fresh };
+    });
+    setNextNo(nextNo + g.rows);
+    setSaved(false);
+  }
+  // headers can be dragged up or down by their grip; the pin numbers follow the new order
+  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 4 } }));
+  function moveHeader({ active, over }: DragEndEvent) {
+    if (!over || active.id === over.id) return;
+    setGroups((gs) => arrayMove(gs, gs.findIndex((g) => g.id === active.id), gs.findIndex((g) => g.id === over.id)));
     setSaved(false);
   }
   const patch = (key: string, p: Ovr) => (setSaved(false), setOvr((o) => ({ ...o, [key]: { ...o[key], ...p } })));
@@ -290,7 +342,7 @@ export function ComponentEditor({ id }: { id: string }) { // id 'new' starts fro
                           onClick={(e) => (e.stopPropagation(), setSel(p.gid))}
                         >
                           {p.dir !== 'free' && <b className="dir" style={{ transform: `rotate(${ANGLE[p.dir]}deg)` }} />}
-                          <u className={`pno ${p.horiz ? 'h' : 'v'}`}>{p.no}</u>
+                          {p.label && <u className={`plbl ${p.lbl}`}>{p.label}</u>}
                         </i>
                       ))}
                       {guides?.x !== undefined && <div className="guide v" style={{ left: `${guides.x * 100}%` }} />}
@@ -374,17 +426,34 @@ export function ComponentEditor({ id }: { id: string }) { // id 'new' starts fro
           </h3>
           <div className="ceside-body">
             {pins.length === 0 ? (
-              <p className="hint">Each pin's ID, label and wire exit direction show up here.</p>
+              <p className="hint">Each pin's number, label and wire exit direction show up here.</p>
             ) : (
               <>
                 <p className="hint">The orange line on a pin = the direction the wire leaves it. Free = any direction.</p>
+                <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={moveHeader}>
+                <SortableContext items={groups.map((g) => g.id)} strategy={verticalListSortingStrategy}>
                 {groups.map((g, i) => {
                   const gp = pins.filter((p) => p.gid === g.id);
                   if (!gp.length) return null;
                   const open = !folded.has(g.id);
                   return (
-                    <section className={`pgroup${g.id === sel ? ' sel' : ''}`} key={g.id} onClick={() => setSel(g.id)}>
+                    <SortableSection key={g.id} id={g.id} className={`pgroup${g.id === sel ? ' sel' : ''}`} onClick={() => setSel(g.id)}>
+                    {(grip) => (<>
                       <div className="pghead">
+                        {grip}
+                        <span className="pgtitle">
+                          <b>Header {i + 1}</b>
+                          <span className="hint">{gp.length} pins</span>
+                          <button
+                            className="add"
+                            title={g.rows > 1 ? 'Add a pin at the end of every row' : 'Add a pin at the end'}
+                            aria-label={`Add a pin to Header ${i + 1}`}
+                            onClick={(e) => (e.stopPropagation(), addPin(g.id))}
+                          >
+                            <Plus size={14} />
+                          </button>
+                        </span>
+                        <DirSelect label="Dir." list={gp} onPick={(d) => gp.forEach((p) => patch(p.key, { dir: d }))} />
                         <button
                           className="x"
                           title={open ? 'Collapse' : 'Expand'}
@@ -393,13 +462,8 @@ export function ComponentEditor({ id }: { id: string }) { // id 'new' starts fro
                         >
                           <ChevronDown size={14} style={{ transform: open ? undefined : 'rotate(-90deg)' }} />
                         </button>
-                        <b>Header {i + 1}</b>
-                        <span className="hint">{gp.length} pins</span>
-                        <span className="spacer" />
-                        <DirSelect label="Wire dir." list={gp} onPick={(d) => gp.forEach((p) => patch(p.key, { dir: d }))} />
                       </div>
                       {open && <div className="phead">
-                        <span>ID</span>
                         <span>Label</span>
                         <span>Dir.</span>
                         <span />
@@ -412,52 +476,71 @@ export function ComponentEditor({ id }: { id: string }) { // id 'new' starts fro
                               {g.rows > 1 && (
                                 <div className="prhead">
                                   <span>Row {row + 1}</span>
-                                  <span className="spacer" />
-                                  <DirSelect label="Wire dir." list={list} onPick={(d) => list.forEach((p) => patch(p.key, { dir: d }))} />
+                                  <DirSelect label="Dir." list={list} onPick={(d) => list.forEach((p) => patch(p.key, { dir: d }))} />
+                                  <span />
                                 </div>
                               )}
                               {list.map((p) => (
                                 <div className="prow" key={p.key}>
-                                  <span className="no">{p.no}</span>
-                                  <input className="ceinput" value={p.label} placeholder="Add label (optional)" title="Pin label" onChange={(e) => patch(p.key, { label: e.target.value })} />
+                                  <input
+                                    className="ceinput plabel"
+                                    value={p.label}
+                                    placeholder="Add label (optional)"
+                                    title="Pin label"
+                                    onChange={(e) => patch(p.key, { label: e.target.value })}
+                                    onKeyDown={(e) => {
+                                      if (e.key !== 'Enter' || e.nativeEvent.isComposing) return;
+                                      e.preventDefault(); // Enter goes to the next pin's label (in the order shown, across headers)
+                                      const all = [...e.currentTarget.closest('.ceside-body')!.querySelectorAll<HTMLInputElement>('input.plabel')];
+                                      const next = all[all.indexOf(e.currentTarget) + 1];
+                                      next?.focus();
+                                      next?.select();
+                                    }}
+                                  />
                                   <DirPick value={p.dir} title="Wire exit direction" onPick={(d) => patch(p.key, { dir: d })} />
-                                  <button className="x" title="Delete this pin (the other IDs stay)" onClick={(e) => (e.stopPropagation(), dropPin(p.gid, p.k))}><X size={14} /></button>
+                                  <button className="x" title="Delete this pin (the numbers after it move up)" onClick={(e) => (e.stopPropagation(), dropPin(p.gid, p.k))}><X size={14} /></button>
                                 </div>
                               ))}
                             </Fragment>
                           ))}
-                    </section>
+                    </>)}
+                    </SortableSection>
                   );
                 })}
+                </SortableContext>
+                </DndContext>
               </>
             )}
           </div>
         </aside>
       </div>
 
-      {confirming && (
-        <div className="modal">
-          <div className="dialog">
-            <h2>Save component?</h2>
-            <p>
-              <b>{name.trim()}</b> with {pins.length} pins will be {id === 'new' ? 'added to' : 'updated in'} your components.
-            </p>
-            <div className="actions">
-              <button onClick={() => setConfirming(false)}>Cancel</button>
-              <button
-                className="primary"
-                autoFocus
-                onClick={() => {
-                  setConfirming(false);
-                  void save();
-                }}
-              >
-                Save
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <AppModal
+        opened={confirming}
+        onClose={() => setConfirming(false)}
+        title="Save component?"
+        size="sm"
+        footer={
+          <>
+            <Button variant="default" onClick={() => setConfirming(false)}>
+              Cancel
+            </Button>
+            <Button
+              data-autofocus
+              onClick={() => {
+                setConfirming(false);
+                void save();
+              }}
+            >
+              Save
+            </Button>
+          </>
+        }
+      >
+        <Text size="sm">
+          <b>{name.trim()}</b> with {pins.length} pins will be {id === 'new' ? 'added to' : 'updated in'} your components.
+        </Text>
+      </AppModal>
 
       {adding && (
         <AddPins
@@ -504,11 +587,28 @@ function DirPick({ value, title, onPick }: { value: PinDir | ''; title: string; 
 /** Sets one wire direction for a set of pins; shows it when they all agree, else "-". Pins can still be changed one by one. */
 function DirSelect({ label, list, onPick }: { label: string; list: { dir: PinDir }[]; onPick: (d: PinDir) => void }) {
   const same = list.every((p) => p.dir === list[0].dir) ? list[0].dir : '';
+  // two cells of the header's grid, so the dropdown sits in the same column as the ones in the pin rows
   return (
-    <span className="dirset">
-      {label}
+    <>
+      <span className="dirlbl">{label}</span>
       <DirPick value={same} title="Sets the wire exit direction of all these pins; each pin can still be changed below" onPick={onPick} />
-    </span>
+    </>
+  );
+}
+
+/** A pin header card that can be dragged by its grip (passed to `children`) to change the order. */
+function SortableSection({ id, className, onClick, children }: { id: string; className: string; onClick: () => void; children: (grip: ReactNode) => ReactNode }) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id });
+  const grip = (
+    <button className="x grip" title="Drag to move this header up or down" aria-label="Move header" onClick={(e) => e.stopPropagation()} {...attributes} {...listeners}>
+      <GripVertical size={14} />
+    </button>
+  );
+  // Translate, not Transform: the card must not be scaled to the height of the one it passes over
+  return (
+    <section ref={setNodeRef} className={className} style={{ transform: CSS.Translate.toString(transform), transition, opacity: isDragging ? 0.6 : 1 }} onClick={onClick}>
+      {children(grip)}
+    </section>
   );
 }
 
@@ -520,44 +620,52 @@ function AddPins({ onAdd, onClose }: { onAdd: (g: Pick<Group, 'pitch' | 'count' 
   const num = (set: (n: number) => void) => (e: { target: { value: string } }) =>
     set(Math.max(1, Math.floor(Number(e.target.value)) || 1));
   return (
-    <div className="modal">
-      <div className="dialog">
-        <h2>Add pins</h2>
-        <div className="fields">
-          <label>
-            Pin model (pitch)
-            <select value={pitch} onChange={(e) => setPitch(Number(e.target.value))}>
-              {PITCHES.map((p) => (
-                <option key={p.mm} value={p.mm}>
-                  {p.mm} mm - {p.note}
-                </option>
-              ))}
-            </select>
+    <AppModal
+      opened
+      onClose={onClose}
+      title="Add pins"
+      footer={
+        <>
+          <Button variant="default" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button onClick={() => onAdd({ pitch, count, rows, dir })}>Add</Button>
+        </>
+      }
+    >
+      <div className="addpins">
+        <label className="field">
+          <span className="flabel">Pin model (pitch)</span>
+          <select value={pitch} onChange={(e) => setPitch(Number(e.target.value))}>
+            {PITCHES.map((p) => (
+              <option key={p.mm} value={p.mm}>
+                {p.mm} mm - {p.note}
+              </option>
+            ))}
+          </select>
+        </label>
+        <div className="frow">
+          <label className="field">
+            <span className="flabel">Number of pins</span>
+            <input type="number" min={1} value={count} onChange={num(setCount)} />
+          </label>
+          <label className="field">
+            <span className="flabel">Rows</span>
+            <input type="number" min={1} value={rows} onChange={num(setRows)} />
           </label>
         </div>
-        <div className="fields">
-          <label>
-            Number of pins <input type="number" min={1} value={count} onChange={num(setCount)} />
-          </label>
-          <label>
-            Rows <input type="number" min={1} value={rows} onChange={num(setRows)} />
-          </label>
-          <label>
-            Direction
-            <select value={dir} onChange={(e) => setDir(e.target.value as GroupDir)}>
-              {GROUP_DIRS.map(([d, t]) => (
-                <option key={d} value={d}>{t}</option>
-              ))}
-            </select>
-          </label>
-        </div>
-        <div className="actions">
-          <button onClick={onClose}>Cancel</button>
-          <button className="primary" onClick={() => onAdd({ pitch, count, rows, dir })}>
-            Add
-          </button>
+        <div className="field">
+          <span className="flabel">Direction</span>
+          <div className="seg" role="radiogroup" aria-label="Direction">
+            {GROUP_DIRS.map(([d, t, icon]) => (
+              <button key={d} role="radio" aria-checked={dir === d} className={dir === d ? 'on' : ''} onClick={() => setDir(d)}>
+                {icon}
+                {t}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
-    </div>
+    </AppModal>
   );
 }
