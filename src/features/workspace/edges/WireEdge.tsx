@@ -1,4 +1,4 @@
-import { useContext, useRef, type PointerEvent, type MouseEvent } from 'react';
+import { useContext, useMemo, useRef, type PointerEvent, type MouseEvent } from 'react';
 import { BaseEdge, useNodes, useReactFlow, type EdgeProps, type Position } from '@xyflow/react';
 import { MenuCtx } from '@/features/workspace/menu/menu';
 import { Angle, GitBranch, Palette, Plus, RotateCcw, Trash2, X } from 'lucide-react';
@@ -8,9 +8,10 @@ import { Actions } from '@/features/workspace/context/actions';
 import { Comps } from '@/features/workspace/context/comps';
 import { JR, PIN } from '@/shared/types';
 import {
-  POS_VEC, STUB, isFree, elbowPath, moveRun, roundedPath, runs, tidy,
-  type Pt, type Run, type V,
+  POS_VEC, STUB, compSize, isFree, elbowPath, moveRun, roundedPath, runs, tidy,
+  type Pt, type Rect, type Run, type V,
 } from '@/shared/lib/geometry';
+import { defaultRoute } from '@/shared/lib/autoroute';
 import '@/features/workspace/workspace.css';
 
 const RADIUS = 8; // corner rounding in px
@@ -85,9 +86,23 @@ export function WireEdge({
   const s = { x: S.x + sv.x * (cS || fS ? 0 : STUB), y: S.y + sv.y * (cS || fS ? 0 : STUB) };
   const e = { x: T.x + ev.x * (cT || fT ? 0 : STUB), y: T.y + ev.y * (cT || fT ? 0 : STUB) };
 
+  // A new wire (no bend points yet) is routed on its own: out of each pin along its direction without doubling
+  // back, and around the components. Once the user shapes it, `points` take over and this is not used.
+  const boxes: Rect[] = nodes.flatMap((n) => {
+    const d = n.data as { componentId?: string; rot?: number };
+    const c = n.type === 'comp' ? comps.get(d.componentId ?? '') : undefined;
+    return c ? [{ x: n.position.x, y: n.position.y, ...compSize(c, d.rot ?? 0) }] : [];
+  });
+  const sig = boxes.map((b) => `${b.x},${b.y},${b.w},${b.h}`).join('|');
+  const auto = useMemo(
+    () => (ortho && !points.length ? defaultRoute(S, s, sv, !(cS || fS), e, ev, !(cT || fT), T, boxes) : null),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [ortho, points.length, sig, S.x, S.y, s.x, s.y, e.x, e.y, T.x, T.y, sv.x, sv.y, ev.x, ev.y, !!cS, !!cT, fS, fT],
+  );
+
   let mid: V[]; // s ... e
   if (!ortho) mid = [s, ...points, e].map((p, i, a) => ({ p, wp: i === 0 || i === a.length - 1 ? -1 : i - 1 }));
-  else mid = tidy(elbowPath(s, sv, points, e, ev).map((v) => v.p)).map((p) => ({ p, wp: -1 }));
+  else mid = tidy(auto ?? elbowPath(s, sv, points, e, ev).map((v) => v.p)).map((p) => ({ p, wp: -1 }));
   const pre: V[] = [{ p: S, wp: -1 }];
   const post: V[] = [{ p: T, wp: -1 }];
   const verts: V[] = [...pre, ...mid, ...post];
