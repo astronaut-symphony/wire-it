@@ -3,6 +3,7 @@ import { Button, Modal, Stack, Text, TextInput } from '@mantine/core';
 import { ImagePlus } from 'lucide-react';
 import { importImage, svgUrl, type Imported } from '@/shared/lib/importImage';
 import { stashDraft } from '@/shared/lib/inbox';
+import { routePath } from '@/features/projects/route';
 
 /** Asks for a name and an image, then continues in the component editor, which opens in a new tab. */
 export function NewComponentModal({ opened, onClose }: { opened: boolean; onClose: () => void }) {
@@ -37,7 +38,7 @@ export function NewComponentModal({ opened, onClose }: { opened: boolean; onClos
   async function create() {
     if (!img || !name.trim()) return;
     await stashDraft({ name: name.trim(), img });
-    window.open(`${location.pathname}?editor=1`, '_blank');
+    window.open(routePath({ kind: 'component', id: 'new' }), '_blank');
     close();
   }
 

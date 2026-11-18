@@ -11,6 +11,7 @@
 .ceinput { height: 28px; padding: 0 8px; border: 1px solid #cbd5e1; border-radius: 6px; background: #fff; color: var(--ink); font-size: 12px; min-width: 0; }
 .ceinput:focus { outline: 1px solid var(--brand); border-color: var(--brand); }
 .ceinput.name { width: 256px; height: 32px; font-size: 14px; font-weight: 600; background: #f8fafc; }
+.ceinput.name.opt { width: 180px; font-weight: 400; }
 .hint { color: var(--mute); font-size: 12px; margin: 4px 0; }
 .err { color: #b91c1c; font-size: 12px; }
 .cebar .btn { height: 32px; padding: 0 12px; } /* same height as the name box */

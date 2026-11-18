@@ -1,15 +1,21 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import type { Edge, Node } from '@xyflow/react';
 import { get, set } from 'idb-keyval';
 import { CHANNEL, takeComponents } from '@/shared/lib/inbox';
 import { sanitizeSvg } from '@/shared/lib/importImage';
 import type { Component } from '@/shared/types';
-import { fromLegacy, nextName, parseProject, parseWorkspace, slim, type Proj, type Workspace } from './model';
-import { parseRoute, routeHash, type Route } from './route';
+import { changedComponents, dropDeadWires, fromLegacy, nextName, parseProject, parseWorkspace, slim, usedVersions, type Change, type Proj, type Workspace } from './model';
+import { parseRoute, routePath, type Route } from './route';
 
 const LEGACY_KEY = 'wiring-project'; // single-project autosave from before there were several projects
-const KEY = 'tinker-part-workspace';
+export const KEY = 'tinker-part-workspace';
 const OLD_KEY = 'wiring-workspace'; // same format, from before the rename to Tinker part
+
+/** The saved workspace as the other tabs (component manager and editor) see it. */
+export async function readWorkspace(): Promise<Workspace | undefined> {
+  const raw = (await get(KEY)) ?? (await get(OLD_KEY));
+  return raw ? parseWorkspace(raw) : undefined;
+}
 
 /**
  * Everything that is saved: the shared component library and the list of projects, plus which page is open.
@@ -22,7 +28,7 @@ export function useWorkspaceStore(nodes: Node[], edges: Edge[], setNodes: (n: No
   const [activeId, setActiveId] = useState<string>(''); // the project whose nodes / edges are on the canvas ('' = none)
   const [notice, setNotice] = useState(''); // message for the user, shown by the app (e.g. a file that would not open)
   const [ready, setReady] = useState(false); // saved workspace loaded
-  const [route, setRoute] = useState<Route>(() => parseRoute(location.hash));
+  const [route, setRoute] = useState<Route>(() => parseRoute(location.pathname));
   const loaded = useRef(false);
 
   const absorb = useCallback(async () => {
@@ -35,7 +41,9 @@ export function useWorkspaceStore(nodes: Node[], edges: Edge[], setNodes: (n: No
         /* a broken svg is skipped rather than blocking the rest */
       }
     }
-    if (ok.length) setCustoms((cs) => [...cs, ...ok.filter((c) => !cs.some((x) => x.id === c.id))]);
+    if (!ok.length) return;
+    // a component with a known id is an edit: it replaces the old one in place
+    setCustoms((cs) => ok.reduce((acc, c) => (acc.some((x) => x.id === c.id) ? acc.map((x) => (x.id === c.id ? c : x)) : [...acc, c]), cs));
   }, []);
 
   const apply = useCallback(
@@ -66,16 +74,17 @@ export function useWorkspaceStore(nodes: Node[], edges: Edge[], setNodes: (n: No
   }, [apply, absorb]);
 
   useEffect(() => {
-    const onHash = () => setRoute(parseRoute(location.hash));
-    window.addEventListener('hashchange', onHash);
-    return () => window.removeEventListener('hashchange', onHash);
+    const onPop = () => setRoute(parseRoute(location.pathname)); // back / forward
+    window.addEventListener('popstate', onPop);
+    return () => window.removeEventListener('popstate', onPop);
   }, []);
 
-  // components finished in the component-editor tab arrive here (also on focus, in case the ping was missed)
+  // components finished in the component-editor tab arrive here (also on focus, in case the ping was missed);
+  // the manage tab sends the whole new library, which has already been saved
   useEffect(() => {
     const ch = new BroadcastChannel(CHANNEL);
     const pull = () => void absorb();
-    ch.onmessage = pull;
+    ch.onmessage = (e) => (Array.isArray(e.data?.components) ? setCustoms(e.data.components) : pull());
     window.addEventListener('focus', pull);
     return () => {
       ch.close();
@@ -85,6 +94,36 @@ export function useWorkspaceStore(nodes: Node[], edges: Edge[], setNodes: (n: No
 
   // The open project's live state is in `nodes` / `edges`; its entry in `projects` is only refreshed when switching or saving.
   const synced = () => projects.map((p) => (p.id === activeId ? { ...p, nodes, edges } : p));
+
+  // Each project remembers the version of every component it uses; one it has not seen before is recorded as it is now.
+  useEffect(() => {
+    if (!ready) return;
+    setProjects((ps) => {
+      let changed = false;
+      const next = ps.map((p) => {
+        const v = usedVersions(p.id === activeId ? nodes : p.nodes, p.versions, customs);
+        if (JSON.stringify(v) === JSON.stringify(p.versions)) return p;
+        changed = true;
+        return { ...p, versions: v };
+      });
+      return changed ? next : ps;
+    });
+  }, [nodes, activeId, customs, ready]);
+
+  // Opening a project whose components were edited since it last saw them: the user confirms first (see App).
+  const [review, setReview] = useState<Change[]>([]);
+  useEffect(() => {
+    if (!ready || route.kind !== 'project' || route.id !== activeId) return setReview([]);
+    setReview(changedComponents(nodes, edges, projects.find((p) => p.id === activeId)?.versions, customs));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ready, route, activeId, customs]);
+  /** The user accepts the edited components: wires on pins that are gone are removed, and the project moves to the new versions. */
+  function acceptReview() {
+    const edited = customs.filter((c) => review.some((r) => r.id === c.id));
+    setEdges(edited.reduce((es, c) => dropDeadWires(nodes, es, c), edges));
+    setProjects((ps) => ps.map((p) => (p.id === activeId ? { ...p, versions: { ...p.versions, ...Object.fromEntries(review.map((r) => [r.id, r.to])) } } : p)));
+    setReview([]);
+  }
   useEffect(() => {
     if (!loaded.current) return;
     const t = setTimeout(
@@ -93,7 +132,7 @@ export function useWorkspaceStore(nodes: Node[], edges: Edge[], setNodes: (n: No
           version: 2,
           components: customs,
           activeId,
-          projects: synced().map((p) => ({ id: p.id, name: p.name, ...slim(p.nodes, p.edges) })),
+          projects: synced().map((p) => ({ id: p.id, name: p.name, versions: p.versions, ...slim(p.nodes, p.edges) })),
         }),
       500,
     );
@@ -102,7 +141,8 @@ export function useWorkspaceStore(nodes: Node[], edges: Edge[], setNodes: (n: No
   }, [customs, nodes, edges, projects, activeId]);
 
   const go = (r: Route) => {
-    location.hash = routeHash(r);
+    history.pushState(null, '', routePath(r));
+    setRoute(r);
   };
   // Puts a project on the canvas, first saving the one that was there back into the list.
   function loadProject(id: string): boolean {
@@ -122,9 +162,9 @@ export function useWorkspaceStore(nodes: Node[], edges: Edge[], setNodes: (n: No
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [route, ready]);
 
-  function newProject(name?: string, data?: { nodes: Node[]; edges: Edge[] }) {
+  function newProject(name?: string, data?: { nodes: Node[]; edges: Edge[]; versions?: Record<string, number> }) {
     const all = synced();
-    const p: Proj = { id: crypto.randomUUID(), name: name ?? nextName(all.map((x) => x.name)), nodes: data?.nodes ?? [], edges: data?.edges ?? [] };
+    const p: Proj = { id: crypto.randomUUID(), name: name ?? nextName(all.map((x) => x.name)), nodes: data?.nodes ?? [], edges: data?.edges ?? [], versions: data?.versions };
     setProjects([...all, p]);
     go({ kind: 'project', id: p.id });
   }
@@ -144,22 +184,15 @@ export function useWorkspaceStore(nodes: Node[], edges: Edge[], setNodes: (n: No
     if (!f) return;
     try {
       const p = parseProject(JSON.parse(await f.text()));
-      setCustoms((cs) => [...cs, ...p.components.filter((c) => !cs.some((x) => x.id === c.id))]);
-      newProject(p.name ?? f.name.replace(/\.[^.]+$/, ''), { nodes: p.nodes, edges: p.edges });
+      setCustoms((cs) => [...cs, ...p.components.filter((c) => !c.id.startsWith('builtin-') && !cs.some((x) => x.id === c.id)).map((c) => ({ ...c, imported: true }))]);
+      newProject(p.name ?? f.name.replace(/\.[^.]+$/, ''), { nodes: p.nodes, edges: p.edges, versions: p.versions });
     } catch (e) {
       setNotice(`Could not open the file: ${(e as Error).message}`);
     }
   }
 
-  // a component is "in use" if any project has it, not only the one on screen
-  const usedIds = useMemo(
-    () => new Set([...nodes, ...projects.filter((p) => p.id !== activeId).flatMap((p) => p.nodes)].map((n) => (n.data as { componentId?: string }).componentId)),
-    [nodes, projects, activeId],
-  );
-
   return {
     customs,
-    setCustoms,
     projects,
     activeId,
     active: projects.find((p) => p.id === activeId),
@@ -171,8 +204,9 @@ export function useWorkspaceStore(nodes: Node[], edges: Edge[], setNodes: (n: No
     deleteProject,
     renameProject,
     importProject,
+    review,
+    acceptReview,
     notice,
     setNotice,
-    usedIds,
   };
 }

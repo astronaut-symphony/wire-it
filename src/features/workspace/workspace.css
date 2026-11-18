@@ -3,6 +3,7 @@
 .workspace > header { grid-column: 1 / -1; }
 /* min-height: 0 lets the row shrink so the library scrolls instead of pushing the button off screen */
 .workspace > aside { min-height: 0; border-right: 1px solid #ddd; padding: 8px; display: flex; flex-direction: column; gap: 8px; overflow: hidden; }
+.libhead { display: flex; align-items: center; justify-content: space-between; padding: 0 2px; font-size: 14px; font-weight: 600; }
 .lib { flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 6px; }
 .lib summary { display: flex; align-items: center; gap: 4px; padding: 4px 2px; font-size: 12px; font-weight: 600; color: #555; cursor: pointer; list-style: none; user-select: none; }
 .lib summary::-webkit-details-marker { display: none; }
@@ -29,7 +30,7 @@
 .bendwrap:hover .bend { fill: #2563eb; }
 .cap.moving { cursor: move; outline: 1px dashed #2563eb; background: #eff6ff; padding: 0 3px; margin: -1px -4px; }
 .capval { font-size: 10px; color: #9ca3af; }
-.cap { transform-origin: center; position: absolute; font-size: 11px; color: #333; white-space: nowrap; }
+.cap { position: absolute; font-size: 11px; color: #333; white-space: nowrap; }
 .missing { padding: 8px; border: 1px dashed red; color: red; }
 .jnode { position: relative; width: 14px; height: 14px; }
 .jhandle.react-flow__handle { width: 14px; height: 14px; min-width: 0; min-height: 0; box-sizing: border-box; border: 0; border-radius: 50%; background: transparent; cursor: crosshair; }

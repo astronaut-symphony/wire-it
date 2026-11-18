@@ -60,11 +60,11 @@ function Shell() {
   const [ask, setAsk] = useState<Ask | null>(null); // the one-line text dialog (rename, value)
   const views = useRef(new Map<string, Viewport>()); // pan / zoom per project, kept while the page stays open
 
-  const { customs, setCustoms, activeId, active, ready, route, go, synced, newProject, deleteProject, renameProject, importProject, notice, setNotice, usedIds } =
+  const { customs, activeId, active, ready, route, go, synced, newProject, deleteProject, renameProject, importProject, review, acceptReview, notice, setNotice } =
     useWorkspaceStore(nodes, edges, setNodes, setEdges);
   const fileBase = (active?.name || 'tinker-part').replace(/[\\/:*?"<>|]/g, '_'); // export files are named after the project
 
-  const comps = useMemo(() => new Map([...BUILTINS, ...customs].map((c) => [c.id, c])), [customs]);
+  const comps = useMemo(() => new Map([...customs, ...BUILTINS].map((c) => [c.id, c])), [customs]);
   const selected = edges.filter((e) => e.selected);
 
   // a junction that lost a wire is merged away (see junction.ts); this runs after every deletion path
@@ -133,10 +133,11 @@ function Shell() {
     if (!c) return;
     const position = snapComp(componentId, 0, screenToFlowPosition({ x: e.clientX, y: e.clientY }));
     setNodes((ns) => {
-      const used = new Set(ns.map((n) => (n.data as { label: string }).label));
+      const base = c.label || c.name; // the component's label wins over its name
+      const used = new Set(ns.map((n) => (n.data as { label?: string }).label));
       let i = 1;
-      while (used.has(`${c.name} ${i}`)) i++;
-      return [...ns, { id: crypto.randomUUID(), type: 'comp', position, data: { componentId, label: `${c.name} ${i}` } }];
+      while (used.has(`${base} ${i}`)) i++;
+      return [...ns, { id: crypto.randomUUID(), type: 'comp', position, data: { componentId, label: `${base} ${i}` } }];
     });
   };
 
@@ -190,11 +191,14 @@ function Shell() {
   const nodeMenu = (ev: ReactMouseEvent, n: Node) => {
     ev.preventDefault();
     setNodes((ns) => ns.map((x) => ({ ...x, selected: x.id === n.id })));
+    // the name may not be empty (the CSV uses it); a component can be reset to its original name
     const rename = (what: string) => () => {
+      const comp = comps.get((n.data as { componentId?: string }).componentId ?? '');
       setAsk({
         title: `Rename ${what.toLowerCase()}`,
         label: 'Name',
-        initial: String((n.data as { label: string }).label),
+        initial: String((n.data as { label?: string }).label || comp?.label || comp?.name || ''),
+        reset: comp?.label || comp?.name,
         onSubmit: (v) => v && setNodes((ns) => ns.map((x) => (x.id === n.id ? { ...x, data: { ...x.data, label: v } } : x))),
       });
     };
@@ -303,18 +307,14 @@ function Shell() {
                     patchData({ ortho: on });
                   }}
                   onExportProject={() =>
-                    download(`${fileBase}.json`, JSON.stringify(serialize(customs, nodes, edges, active?.name)), 'application/json')
+                    download(`${fileBase}.json`, JSON.stringify(serialize(customs, nodes, edges, active?.name, active?.versions)), 'application/json')
                   }
                   onExportPng={() => exportPng(diagramBounds(nodes, edges), fileBase)}
                   onExportCsv={() => download(`${fileBase}.csv`, toCsv(wireRows(nodes, edges, comps)), 'text/csv')}
                   canExportPng={nodes.length > 0}
                   canExportCsv={edges.length > 0}
                 />
-                <Sidebar
-                  customs={customs}
-                  usedIds={usedIds}
-                  onDeleteComponent={(id) => setCustoms((cs) => cs.filter((x) => x.id !== id))}
-                />
+                <Sidebar customs={customs} />
                 <main>
                   <div className="canvas" onDragOver={(e) => e.preventDefault()} onDrop={onDrop}>
                     <ReactFlow
@@ -370,6 +370,22 @@ function Shell() {
             )
           )}
           <PromptModal ask={ask} onClose={() => setAsk(null)} />
+          <Modal opened={review.length > 0} onClose={() => go({ kind: 'home' })} title="Components were updated" centered>
+            <Text size="sm" mb="sm">Some components in this project were edited after it was last saved.</Text>
+            {review.map((r) => (
+              <div key={r.id}>
+                <Text size="sm" fw={600}>{r.name} <Text span c="dimmed" size="xs">version {r.from} → {r.to}</Text></Text>
+                {r.lost.length > 0 && (
+                  <Text size="xs" c="red">These pins are gone, so their wires will be removed: {r.lost.join(', ')}</Text>
+                )}
+              </div>
+            ))}
+            <Text size="xs" c="dimmed" mt="sm">Pins may also have moved, so wires can shift a little.</Text>
+            <Group justify="flex-end" mt="md">
+              <Button variant="default" onClick={() => go({ kind: 'home' })}>Cancel</Button>
+              <Button onClick={acceptReview}>Update project</Button>
+            </Group>
+          </Modal>
           <Modal opened={!!notice} onClose={() => setNotice('')} title="Something went wrong" centered size="sm">
             <Text size="sm">{notice}</Text>
             <Group justify="flex-end" mt="md">

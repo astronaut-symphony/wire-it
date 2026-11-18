@@ -41,10 +41,13 @@ export function diagramBounds(nodes: Node[], edges: Edge[]): Rect {
   for (const n of nodes) {
     const d = n.data as { label?: string; value?: string; labelPos?: { x: number; y: number }; labelRot?: number };
     if (n.type !== 'comp' || !d.labelPos) continue;
-    let [w, h] = [Math.max(d.label?.length ?? 0, d.value?.length ?? 0) * 7, d.value ? 28 : 14];
-    const [cx, cy] = [n.position.x + d.labelPos.x + w / 2, n.position.y + d.labelPos.y + h / 2];
-    if ((d.labelRot ?? 0) % 180) [w, h] = [h, w]; // turned a quarter: it pivots around its centre
-    grow(cx - w / 2, cy - h / 2, w, h);
+    // the box hangs from its bottom-left corner (the pivot): x 0..w, y -h..0 before turning; an unnamed label is guessed at 12 characters
+    const [w, h] = [Math.max(d.label?.length || 12, d.value?.length ?? 0) * 7, d.value ? 28 : 14];
+    const t = ((d.labelRot ?? 0) * Math.PI) / 180;
+    const [c, s] = [Math.round(Math.cos(t)), Math.round(Math.sin(t))]; // always a quarter turn, so exact
+    const corners = [0, w].flatMap((x) => [-h, 0].map((y) => [x * c - y * s, x * s + y * c]));
+    const [xs, ys] = [corners.map((p) => p[0]), corners.map((p) => p[1])];
+    grow(n.position.x + d.labelPos.x + Math.min(...xs), n.position.y + d.labelPos.y + Math.min(...ys), Math.max(...xs) - Math.min(...xs), Math.max(...ys) - Math.min(...ys));
   }
   const pad = 30;
   return { x: x1 - pad, y: y1 - pad, width: x2 - x1 + 2 * pad, height: y2 - y1 + 2 * pad };

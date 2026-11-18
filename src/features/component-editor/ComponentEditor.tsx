@@ -6,6 +6,7 @@ import { ROTATE, groupPins, mirror, mirrorDir, snapOrigin, type Group, type Grou
 import { importImage, rotateImage, svgUrl, type Imported } from '@/shared/lib/importImage';
 import { autoDir, rotDir } from '@/shared/lib/geometry';
 import { sendComponent, takeDraft } from '@/shared/lib/inbox';
+import { readWorkspace } from '@/features/projects/useWorkspaceStore';
 import type { Component, Dir, PinDir } from '@/shared/types';
 import './component-editor.css';
 
@@ -21,7 +22,13 @@ const DIRS: [PinDir, string, ReactNode][] = [
 const ANGLE: Record<Dir, number> = { right: 0, down: 90, left: 180, up: 270 };
 const GROUP_DIRS: [GroupDir, string][] = [['right', 'right'], ['down', 'down'], ['left', 'left'], ['up', 'up']];
 type Pt = { x: number; y: number };
-type Ovr = { label?: string; dir?: PinDir }; // per-pin edits, keyed `${groupId}:${k}`
+// per-pin edits, keyed `${groupId}:${k}`; `id` is the pin's id in the saved component ("p3" = pin 3). It is given
+// when the pin is added and never changes or gets reused, so wires on the canvas stay on their pin
+type Ovr = { label?: string; dir?: PinDir; id?: string };
+const pinNo = (id?: string) => {
+  const m = /^p(\d+)$/.exec(id ?? '');
+  return m ? Number(m[1]) : undefined;
+};
 const clamp01 = (v: number) => Math.min(1, Math.max(0, v));
 
 /**
@@ -29,8 +36,10 @@ const clamp01 = (v: number) => Math.min(1, Math.max(0, v));
  * (the scale) is what you adjust. Pin groups have a real pitch, so a wider image makes them look smaller
  * on it. Each group's first pin stays where it is on the image.
  */
-export function ComponentEditor() {
+export function ComponentEditor({ id }: { id: string }) { // id 'new' starts from the draft; any other id edits that component
   const [name, setName] = useState('');
+  const [label, setLabel] = useState('');
+  const [nextNo, setNextNo] = useState(1); // the id number the next new pin gets
   const [img, setImg] = useState<Imported | null>(null);
   const [err, setErr] = useState('');
   const [imgW, setImgW] = useState(60); // real width of the image in mm = the scale
@@ -49,7 +58,8 @@ export function ComponentEditor() {
   const viewRef = useRef<HTMLDivElement>(null);
   const zoomRef = useRef(1);
   const anchor = useRef<{ fx: number; fy: number; ox: number; oy: number } | null>(null);
-  const compId = useRef(crypto.randomUUID());
+  const compId = useRef(id === 'new' ? crypto.randomUUID() : id);
+  const ver = useRef<number | undefined>(undefined); // the version in the library; none yet for a brand new component
   zoomRef.current = zoom;
   const boxW = BASE_W * zoom; // image size on screen now
   const aspect = img ? img.h / img.w : 1;
@@ -57,13 +67,34 @@ export function ComponentEditor() {
   const sg = groups.find((g) => g.id === sel);
 
   useEffect(() => {
-    document.title = 'New component';
-    void takeDraft().then((d) => {
-      if (!d) return;
-      setName(d.name);
-      setImg(d.img);
+    document.title = id === 'new' ? 'New component' : 'Edit component';
+    if (id === 'new') {
+      void takeDraft().then((d) => {
+        if (!d) return;
+        setName(d.name);
+        setImg(d.img);
+      });
+      return;
+    }
+    void readWorkspace().then((ws) => {
+      const c = ws?.components.find((x) => x.id === id);
+      if (!c) return setErr('Component not found. It may have been deleted.');
+      setName(c.name);
+      setLabel(c.label ?? '');
+      ver.current = c.version ?? 1;
+      setImg({ svg: c.svg, w: c.w, h: c.h });
+      setImgW(c.mmW);
+      // made before editing existed: the pin groups are gone, so every pin becomes a group of its own
+      const gs: Group[] = c.editor?.groups ?? c.pins.map((p, i) => ({ id: `g${i}`, pitch: 2.54, count: 1, rows: 1, dir: 'right', origin: { x: p.x, y: p.y }, skip: [] }));
+      const base: Record<string, Ovr> = c.editor?.ovr ?? Object.fromEntries(c.pins.map((p, i) => [`g${i}:0`, { label: p.label, dir: p.dir }]));
+      // the pins come out of the groups in the order they were saved: each keeps the id it already has on the canvas
+      const keys = gs.flatMap((g) => groupPins(g, c.mmW, c.h / c.w).map((p) => `${g.id}:${p.k}`));
+      let next = c.editor?.next ?? Math.max(0, ...c.pins.map((p) => pinNo(p.id) ?? 0)) + 1;
+      setGroups(gs);
+      setOvr(Object.fromEntries(keys.map((k, i) => [k, { ...base[k], id: c.pins[i]?.id ?? `p${next++}` }])));
+      setNextNo(next);
     });
-  }, []);
+  }, [id]);
 
   async function onFile(f?: File) {
     if (!f) return;
@@ -113,11 +144,11 @@ export function ComponentEditor() {
     return () => v.removeEventListener('wheel', onWheel);
   }, [img === null]); // the view only exists once an image is loaded
 
-  // every pin of every group, numbered 1..n in order: deleting one closes the gap automatically
+  // every pin of every group, shown by its id number: deleting one leaves a gap, the others keep theirs
   const pins = (img ? groups.flatMap((g) => groupPins(g, imgW, aspect).map((p) => ({ ...p, gid: g.id, key: `${g.id}:${p.k}`, horiz: g.dir === 'right' || g.dir === 'left' }))) : []).map(
     (p, i) => {
       const o = ovr[p.key];
-      return { ...p, no: i + 1, label: o?.label ?? '', dir: o?.dir ?? autoDir(clamp01(p.x), clamp01(p.y), img!.w, img!.h) };
+      return { ...p, id: o?.id ?? p.key, no: pinNo(o?.id) ?? i + 1, label: o?.label ?? '', dir: o?.dir ?? autoDir(clamp01(p.x), clamp01(p.y), img!.w, img!.h) };
     },
   );
 
@@ -184,24 +215,29 @@ export function ComponentEditor() {
 
   async function save() {
     if (!img || !name.trim() || !pins.length) return;
+    const version = (ver.current ?? 0) + 1; // every save of an existing component is a new version
     const comp: Component = {
-      id: compId.current, // same id on a second save, so the canvas tab never gets two copies
+      version,
+      id: compId.current, // same id on a second save: the canvas tab replaces the component instead of adding a copy
       name: name.trim(),
+      ...(label.trim() ? { label: label.trim() } : {}),
       svg: img.svg,
       w: img.w,
       h: img.h,
       mmW: imgW,
       pins: pins.map((p) => ({
-        id: `p${p.no}`,
+        id: p.id,
         name: String(p.no),
         ...(p.label ? { label: p.label } : {}),
         x: clamp01(p.x),
         y: clamp01(p.y),
         dir: p.dir,
       })),
+      editor: { groups, ovr, next: nextNo },
     };
     try {
       await sendComponent(comp);
+      ver.current = version;
       setSaved(true);
       setStatus('Saved to the library. You can close this tab.');
       window.close(); // only works for a tab the canvas opened; otherwise the message above stays
@@ -214,6 +250,7 @@ export function ComponentEditor() {
     <div className="cepage">
       <header className="cebar">
         <input className="ceinput name" value={name} placeholder="Component name" aria-label="Component name" onChange={(e) => (setName(e.target.value), setSaved(false))} />
+        <input className="ceinput name opt" value={label} placeholder="Add label (optional)" aria-label="Component label" title="Shown on the canvas instead of the name" onChange={(e) => (setLabel(e.target.value), setSaved(false))} />
         <label className="btn">
           <ImagePlus size={14} />
           {img ? 'Replace image' : 'Add image'}
@@ -337,7 +374,7 @@ export function ComponentEditor() {
           </h3>
           <div className="ceside-body">
             {pins.length === 0 ? (
-              <p className="hint">Each pin's number, label and wire exit direction show up here.</p>
+              <p className="hint">Each pin's ID, label and wire exit direction show up here.</p>
             ) : (
               <>
                 <p className="hint">The orange line on a pin = the direction the wire leaves it. Free = any direction.</p>
@@ -362,7 +399,7 @@ export function ComponentEditor() {
                         <DirSelect label="Wire dir." list={gp} onPick={(d) => gp.forEach((p) => patch(p.key, { dir: d }))} />
                       </div>
                       {open && <div className="phead">
-                        <span>No.</span>
+                        <span>ID</span>
                         <span>Label</span>
                         <span>Dir.</span>
                         <span />
@@ -384,7 +421,7 @@ export function ComponentEditor() {
                                   <span className="no">{p.no}</span>
                                   <input className="ceinput" value={p.label} placeholder="Add label (optional)" title="Pin label" onChange={(e) => patch(p.key, { label: e.target.value })} />
                                   <DirPick value={p.dir} title="Wire exit direction" onPick={(d) => patch(p.key, { dir: d })} />
-                                  <button className="x" title="Delete this pin (other numbers adjust)" onClick={(e) => (e.stopPropagation(), dropPin(p.gid, p.k))}><X size={14} /></button>
+                                  <button className="x" title="Delete this pin (the other IDs stay)" onClick={(e) => (e.stopPropagation(), dropPin(p.gid, p.k))}><X size={14} /></button>
                                 </div>
                               ))}
                             </Fragment>
@@ -403,7 +440,7 @@ export function ComponentEditor() {
           <div className="dialog">
             <h2>Save component?</h2>
             <p>
-              <b>{name.trim()}</b> with {pins.length} pins will be added to your components.
+              <b>{name.trim()}</b> with {pins.length} pins will be {id === 'new' ? 'added to' : 'updated in'} your components.
             </p>
             <div className="actions">
               <button onClick={() => setConfirming(false)}>Cancel</button>
@@ -429,6 +466,10 @@ export function ComponentEditor() {
             const id = crypto.randomUUID().slice(0, 8);
             // starts in the middle of the image, selected, ready to be moved into place
             setGroups((gs) => [...gs, { ...g, id, skip: [], origin: { x: 0.5, y: 0.5 } }]);
+            // every pin of the group gets its id number now, in order, so it never changes later
+            const n = g.count * g.rows;
+            setOvr((o) => ({ ...o, ...Object.fromEntries(Array.from({ length: n }, (_, k) => [`${id}:${k}`, { id: `p${nextNo + k}` }])) }));
+            setNextNo(nextNo + n);
             setSel(id);
             setSaved(false);
             setAdding(false);

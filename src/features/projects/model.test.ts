@@ -1,6 +1,9 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import type { Edge, Node } from '@xyflow/react';
-import { fromLegacy, nextName, parseWorkspace, serialize, slim } from './model';
+import { degrees, normalizeJunctions } from '../workspace/lib/junction';
+import { changedComponents, dropDeadWires, fromLegacy, mergeImported, nextName, parseComponents, parseWorkspace, serialize, serializeComponents, slim, usedVersions } from './model';
+
+vi.mock('@/shared/lib/importImage', () => ({ sanitizeSvg: (svg: string) => ({ svg }) })); // the real one needs a browser DOMParser
 
 const node = (id: string): Node => ({ id, type: 'comp', position: { x: 1, y: 2 }, data: { componentId: 'c', label: id }, selected: true, measured: { width: 5, height: 5 } });
 const edge = (id: string): Edge => ({ id, source: 'a', target: 'b', type: 'smoothstep', selected: true });
@@ -16,6 +19,56 @@ describe('workspace', () => {
   it('serialize carries the project name', () => {
     expect(serialize([], [], [], 'Lampu').name).toBe('Lampu');
     expect(serialize([], [], []).version).toBe(1);
+  });
+
+  it('a project file holds only the components it uses, without editor state', () => {
+    const c = (id: string) => ({ id, name: id, svg: '', w: 1, h: 1, mmW: 1, pins: [], imported: true, editor: { groups: [], ovr: {} } });
+    const p = serialize([c('c'), c('unused')], [node('a')], []);
+    expect(p.components).toEqual([{ id: 'c', name: 'c', svg: '', w: 1, h: 1, mmW: 1, pins: [] }]);
+  });
+
+  it('an edit keeps wires on pins that still exist and drops the ones on deleted pins', () => {
+    const comp = { id: 'c', name: 'c', svg: '', w: 1, h: 1, mmW: 1, pins: [{ id: 'p1', name: '1', x: 0, y: 0 }, { id: 'p3', name: '3', x: 1, y: 1 }] };
+    const nodes = [node('a'), { ...node('b'), data: { componentId: 'other' } }];
+    const e = (id: string, h1: string, h2: string): Edge => ({ id, source: 'a', sourceHandle: h1, target: 'b', targetHandle: h2 });
+    const es = [e('keep', 'p3', 'p9'), e('dead', 'p2', 'p9'), e('other', 'p1', 'p9')];
+    expect(dropDeadWires(nodes, es, comp).map((x) => x.id)).toEqual(['keep', 'other']); // p9 is on another component: untouched
+    expect(dropDeadWires(nodes, [es[0]], comp)).toEqual([es[0]]);
+  });
+
+  it('a project notices components edited since it last saw them, and which wired pins are gone', () => {
+    const comp = { id: 'c', name: 'LED', svg: '', w: 1, h: 1, mmW: 1, version: 3, pins: [{ id: 'p1', name: '1', x: 0, y: 0 }] };
+    const nodes = [{ ...node('a'), data: { componentId: 'c', label: 'LED 1' } }, { ...node('b'), data: { componentId: 'other' } }];
+    const edges: Edge[] = [{ id: 'e', source: 'a', sourceHandle: 'p2', target: 'b', targetHandle: 'x' }];
+    expect(usedVersions(nodes, undefined, [comp])).toEqual({ c: 3 }); // never seen: the current version
+    expect(usedVersions(nodes, { c: 1 }, [comp])).toEqual({ c: 1 }); // already known: kept
+    expect(changedComponents(nodes, edges, { c: 3 }, [comp])).toEqual([]);
+    expect(changedComponents(nodes, edges, undefined, [comp])).toEqual([]); // no record, nothing to compare
+    expect(changedComponents(nodes, edges, { c: 1 }, [comp])).toEqual([{ id: 'c', name: 'LED', from: 1, to: 3, lost: ['LED 1: pin 2'] }]);
+  });
+
+  it('wires removed with a deleted pin leave no stray junction behind', () => {
+    const comp = { id: 'c', name: 'c', svg: '', w: 1, h: 1, mmW: 1, pins: [{ id: 'p1', name: '1', x: 0, y: 0 }] };
+    const j: Node = { id: 'j', type: 'junction', position: { x: 0, y: 0 }, data: { label: 'J1' } };
+    const wire = (id: string, source: string, sh: string, target: string, th: string): Edge => ({ id, source, sourceHandle: sh, target, targetHandle: th });
+    const run = (nodes: Node[], edges: Edge[]) => {
+      const alive = dropDeadWires(nodes, edges, comp);
+      return normalizeJunctions(nodes, alive, degrees(nodes, edges)); // what the canvas does after any wire goes
+    };
+    const other = { ...node('b'), data: { componentId: 'other' } };
+    // three wires meet at the junction, one of them on the deleted pin 2: the other two become a single wire
+    const three = run([node('a'), other, j], [wire('e1', 'a', 'p2', 'j', 'j'), wire('e2', 'j', 'j', 'b', 'h1'), wire('e3', 'j', 'j', 'b', 'h2')]);
+    expect(three.nodes.some((n) => n.type === 'junction')).toBe(false);
+    expect(three.edges).toHaveLength(1);
+    // only two wires: the dot and the wire left dangling go as well
+    const two = run([node('a'), other, j], [wire('e1', 'a', 'p2', 'j', 'j'), wire('e2', 'j', 'j', 'b', 'h1')]);
+    expect(two.nodes.some((n) => n.type === 'junction')).toBe(false);
+    expect(two.edges).toHaveLength(0);
+  });
+
+  it('slim leaves the label-moving mode out of what is saved', () => {
+    const n = { ...node('a'), data: { componentId: 'c', movingLabel: true } };
+    expect(slim([n], []).nodes[0].data).toEqual({ componentId: 'c' });
   });
 
   it('a version-1 autosave becomes the first tab', () => {
@@ -40,6 +93,20 @@ describe('workspace', () => {
     expect(nextName(['Untitled1'])).toBe('Untitled2');
     expect(nextName(['Untitled2', 'Lampu'])).toBe('Untitled3'); // length + 1 = 3 is free
     expect(nextName(['Untitled2', 'Untitled3'])).toBe('Untitled4');
+  });
+
+  it('a components file round-trips as imported, and bad or foreign data is rejected', () => {
+    const c = { id: 'x', name: 'LED', svg: '<svg xmlns="http://www.w3.org/2000/svg"/>', w: 10, h: 10, mmW: 5, pins: [{ id: 'p1', name: '1', x: 0.5, y: 0.5, dir: 'up' as const }] };
+    const back = parseComponents(serializeComponents([{ ...c, imported: false }]));
+    expect(back[0]).toMatchObject({ id: 'x', name: 'LED', imported: true });
+    expect(back[0].pins[0]).toMatchObject({ id: 'p1', dir: 'up' });
+    const file = (x: object) => ({ app: 'tinker-part', version: 1, components: [x] });
+    expect(parseComponents(file({ ...c, builtin: true }))[0].builtin).toBeUndefined(); // unknown fields are dropped
+    const m = mergeImported([back[0]], [...back, { ...back[0], id: 'y' }, { ...back[0], id: 'builtin-uno' }]);
+    expect([m.added, m.skipped, m.next.length]).toEqual([1, 2, 2]); // same id and built-in ids are skipped
+    expect(() => parseComponents({ version: 1, components: [] })).toThrow();
+    expect(() => parseComponents(file({ ...c, mmW: 0 }))).toThrow();
+    expect(() => parseComponents(file({ ...c, pins: [{ id: 'p', name: '1', x: 'a', y: 0 }] }))).toThrow();
   });
 
   it('an empty workspace is valid: no projects, no active one', () => {

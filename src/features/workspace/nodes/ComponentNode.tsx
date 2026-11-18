@@ -7,12 +7,12 @@ import { svgUrl } from '@/shared/lib/importImage';
 import '@/features/workspace/workspace.css';
 
 type Pos = { x: number; y: number };
-// where the name sits until it is moved: above the top-left corner, one line higher when a value goes under it
-const labelHome = (hasValue: boolean): Pos => ({ x: 0, y: hasValue ? -30 : -16 });
+// the name + value box is anchored by its bottom-left corner, so a value grows it upwards; home = just above the top-left corner
+const LABEL_HOME: Pos = { x: 0, y: -2 };
 
 export function ComponentNode({ id, data }: NodeProps) {
-  const { componentId, label, value, rot = 0, labelRot = 0, labelPos = labelHome(!!value), movingLabel } = data as {
-    componentId: string; label: string; value?: string; rot?: number; labelRot?: number; labelPos?: Pos; movingLabel?: boolean;
+  const { componentId, label, value, rot = 0, labelRot = 0, labelPos = LABEL_HOME, movingLabel } = data as {
+    componentId: string; label?: string; value?: string; rot?: number; labelRot?: number; labelPos?: Pos; movingLabel?: boolean;
   };
   const { setNodes, screenToFlowPosition } = useReactFlow();
   const drag = useRef<{ from: Pos; start: Pos } | null>(null);
@@ -49,10 +49,11 @@ export function ComponentNode({ id, data }: NodeProps) {
       <div
         ref={capRef}
         className={`cap${movingLabel ? ' moving nodrag nopan' : ''}`}
-        style={{ left: labelPos.x, top: labelPos.y, transform: labelRot ? `rotate(${labelRot}deg)` : undefined }}
+        // turns around the bottom-left corner, the anchor
+        style={{ left: labelPos.x, bottom: r.h - labelPos.y, transformOrigin: '0 100%', transform: labelRot ? `rotate(${labelRot}deg)` : undefined }}
         {...(movingLabel ? { onPointerDown: down, onPointerMove: move, onPointerUp: up } : {})}
       >
-        {label}
+        {label || c.label || c.name}
         {value && <div className="capval">{value}</div>}
       </div>
       <img

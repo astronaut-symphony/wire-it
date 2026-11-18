@@ -1,7 +1,7 @@
 import type { Edge, Node } from '@xyflow/react';
 import { pinText, type Component } from '@/shared/types';
 
-type Data = { componentId: string; label: string };
+type Data = { componentId: string; label?: string };
 
 export function wireRows(nodes: Node[], edges: Edge[], comps: Map<string, Component>): string[][] {
   const byId = new Map(nodes.map((n) => [n.id, n]));
@@ -9,8 +9,9 @@ export function wireRows(nodes: Node[], edges: Edge[], comps: Map<string, Compon
     const node = byId.get(id);
     if (node?.type === 'junction') return String((node.data as { label?: string }).label ?? 'J');
     const d = node?.data as Data | undefined;
-    const pin = d && comps.get(d.componentId)?.pins.find((p) => p.id === pinId);
-    return `${d?.label ?? '?'}.${pin ? pinText(pin) : '?'}`;
+    const comp = d && comps.get(d.componentId);
+    const pin = comp?.pins.find((p) => p.id === pinId);
+    return `${d?.label || comp?.label || comp?.name || '?'}.${pin ? pinText(pin) : '?'}`; // no label: the component's own name
   };
   return [
     ['from', 'to', 'color'],
