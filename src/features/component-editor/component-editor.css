@@ -1,43 +1,67 @@
-/* Component editor page (opened in its own tab) */
-.cepage button { padding: 4px 10px; cursor: pointer; }
-.cepage button.primary { background: #2563eb; color: #fff; border: 0; border-radius: 4px; }
+/* Component editor page (own tab): top bar, dotted canvas with a tool bar under it, pin list on the right */
+.cepage { --line: #e2e8f0; --ink: #1e293b; --mute: #64748b; --brand: #2563eb; display: flex; flex-direction: column; height: 100%; color: var(--ink); background: #fff; }
+.cepage .spacer { flex: 1; }
+.cepage button, .cepage .btn { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border: 1px solid #cbd5e1; border-radius: 6px; background: #fff; color: var(--ink); font-size: 12px; font-weight: 500; cursor: pointer; }
+.cepage button:hover:not(:disabled), .cepage .btn:hover { background: #f1f5f9; }
+.cepage button.primary, .cepage .btn.primary { background: var(--brand); border-color: var(--brand); color: #fff; font-weight: 600; }
+.cepage button.primary:hover:not(:disabled) { background: #1d4ed8; }
 .cepage button:disabled { opacity: 0.5; cursor: default; }
-.modal { position: fixed; inset: 0; background: #0006; display: grid; place-items: center; z-index: 10; }
-.dialog { background: #fff; padding: 16px; border-radius: 8px; max-height: 94vh; overflow: auto; max-width: 96vw; }
-.dialog h2 { margin: 0 0 8px; }
-.fields { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-bottom: 8px; }
-.fields label { display: flex; gap: 4px; align-items: center; }
-.fields input[type='number'] { width: 64px; }
-.hint { color: #555; margin: 4px 0; }
-.err { color: #b00; }
-.actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 12px; }
-/* component editor page (own tab) */
-.cepage { display: flex; flex-direction: column; gap: 10px; height: 100%; padding: 12px 16px; }
-.cebar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
-.cebar label { display: flex; align-items: center; gap: 6px; }
-.btn { padding: 4px 10px; border: 1px solid #767676; border-radius: 4px; background: #efefef; cursor: pointer; }
-.cebody { flex: 1; min-height: 0; display: flex; gap: 16px; }
-.cemain { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 8px; }
-.ceview { flex: 1; min-height: 240px; overflow: auto; display: flex; border: 1px solid #aaa; background: #fff; }
+.cepage button.danger { border-color: #fecaca; background: #fef2f2; color: #b91c1c; }
+.cepage button.danger:hover:not(:disabled) { background: #fee2e2; }
+.ceinput { height: 28px; padding: 0 8px; border: 1px solid #cbd5e1; border-radius: 6px; background: #fff; color: var(--ink); font-size: 12px; min-width: 0; }
+.ceinput:focus { outline: 1px solid var(--brand); border-color: var(--brand); }
+.ceinput.name { width: 256px; height: 32px; font-size: 14px; font-weight: 600; background: #f8fafc; }
+.hint { color: var(--mute); font-size: 12px; margin: 4px 0; }
+.err { color: #b91c1c; font-size: 12px; }
+.cebar .btn { height: 32px; padding: 0 12px; } /* same height as the name box */
+.cebar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 10px 16px; border-bottom: 1px solid var(--line); }
+.cebody { flex: 1; min-height: 0; display: flex; }
+.cemain { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; }
+.cecanvas { position: relative; flex: 1; min-height: 240px; display: flex; background: #f8fafc; }
+.ceempty { margin: auto; color: var(--mute); }
+.cechip { padding: 6px 16px; border-top: 1px solid #bfdbfe; background: #eff6ff; color: #1d4ed8; font-size: 12px; }
+.ceview { flex: 1; overflow: auto; display: flex; }
 /* auto margins centre the image, and unlike justify/align-center they never clip it when it is zoomed past the view */
-.cepad { position: relative; flex: none; margin: auto; padding: 24px; }
-.cestage { position: relative; user-select: none; outline: 1px dashed #cbd5e1; }
-.cetools { display: flex; flex-wrap: wrap; gap: 8px; }
-.cegroup { display: flex; align-items: center; gap: 4px; padding: 4px 8px; border: 1px solid #cbd5e1; border-radius: 6px; background: #f8fafc; }
-.cegroup > span:first-child { font-size: 12px; color: #475569; margin-right: 2px; }
-.cegroup input.mm { width: 78px; text-align: right; font-variant-numeric: tabular-nums; }
-.cegroup .val { min-width: 56px; text-align: center; font-variant-numeric: tabular-nums; }
-.ceside { flex: 0 0 320px; overflow: auto; border-left: 1px solid #ddd; padding-left: 12px; }
-.ceside h3 { margin: 0 0 6px; font-size: 14px; }
-.ceside .bulk { display: flex; gap: 6px; align-items: center; }
-.phead, .prow { display: grid; grid-template-columns: 34px 1fr 52px 26px; gap: 4px; align-items: center; margin-bottom: 4px; }
-.phead { font-size: 12px; color: #666; position: sticky; top: 0; background: #fff; }
-.prow { padding: 1px 2px; border-radius: 4px; cursor: pointer; }
-.prow.sel { background: #dbeafe; }
-.prow .no { text-align: center; font-variant-numeric: tabular-nums; }
-.prow input, .prow select { min-width: 0; width: 100%; }
-.prow button { padding: 2px 0; }
-.cefooter { display: flex; align-items: center; justify-content: flex-end; gap: 12px; }
+.cepad { position: relative; flex: none; margin: auto; padding: 48px 24px 24px; }
+.cestage { position: relative; user-select: none; box-shadow: 0 10px 25px #0f172a26; }
+.cetools { display: flex; flex-wrap: wrap; gap: 10px; padding: 10px 16px; border-top: 1px solid var(--line); background: #fff; }
+.cegroup { display: flex; align-items: center; gap: 4px; padding: 2px 4px; border: 1px solid #cbd5e1; border-radius: 6px; background: #fff; font-size: 12px; }
+.cegroup > span:first-child { padding: 0 6px; font-size: 11px; font-weight: 500; color: var(--mute); }
+.cegroup button { padding: 2px 6px; min-height: 24px; border-color: transparent; }
+.cegroup label { display: flex; align-items: center; gap: 4px; padding: 0 6px; cursor: pointer; }
+.cegroup input.mm { width: 72px; height: 24px; border: 1px solid #e2e8f0; border-radius: 4px; text-align: right; font: 500 12px ui-monospace, 'JetBrains Mono', monospace; }
+.cegroup .val { min-width: 44px; text-align: center; font: 500 12px ui-monospace, 'JetBrains Mono', monospace; }
+.ceside { flex: 0 0 384px; display: flex; flex-direction: column; min-height: 0; border-left: 1px solid var(--line); background: #fff; }
+.ceside h3 { display: flex; align-items: center; gap: 6px; margin: 0; padding: 12px 16px 8px; border-bottom: 1px solid var(--line); font-size: 14px; font-weight: 600; color: var(--brand); }
+.ceside .count { padding: 0 6px; border-radius: 999px; background: #f1f5f9; color: #475569; font: 500 11px ui-monospace, 'JetBrains Mono', monospace; }
+.ceside-body { flex: 1; overflow-y: auto; padding: 12px; }
+.ceside .bulk { display: flex; gap: 8px; align-items: center; justify-content: space-between; font-size: 12px; font-weight: 500; }
+.phead, .prow { display: grid; grid-template-columns: 34px 1fr 72px 26px; gap: 6px; align-items: center; margin-bottom: 4px; }
+.phead { font-size: 10px; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase; color: #94a3b8;  }
+.prow { padding: 2px; }
+.pgroup { margin-bottom: 12px; padding: 8px; border: 1px solid var(--line); border-radius: 8px; cursor: pointer; }
+.pgroup.sel { border-color: #93c5fd; background: #f8fbff; }
+.pghead { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; font-size: 12px; }
+.prhead { display: flex; align-items: center; gap: 8px; margin: 8px 0 4px; font-size: 11px; font-weight: 600; color: #475569; }
+.dirpick { display: inline-flex; align-items: center; justify-content: space-between; gap: 4px; width: 100%; padding: 0 6px; cursor: pointer; }
+.dirset { display: flex; align-items: center; gap: 4px; color: var(--mute); }
+.dirset .dirpick { width: 56px; }
+.prhead label, .pghead label { display: flex; align-items: center; gap: 4px; color: var(--mute); }
+.pghead button.x { padding: 2px; border-color: transparent; color: #94a3b8; }
+.pghead button.x:hover { color: #b91c1c; background: #fef2f2; }
+.prow .no { height: 24px; display: grid; place-items: center; border-radius: 4px; background: #dbeafe; color: #1d4ed8; font: 600 11px ui-monospace, 'JetBrains Mono', monospace; }
+.prow .ceinput { width: 100%; font-family: ui-monospace, 'JetBrains Mono', monospace; }
+.prow button.x { padding: 2px; border-color: transparent; color: #94a3b8; justify-content: center; }
+.prow button.x:hover { color: #b91c1c; background: #fef2f2; }
+/* "Add pins" dialog */
+.modal { position: fixed; inset: 0; background: #0f172a66; display: grid; place-items: center; z-index: 10; }
+.dialog { background: #fff; padding: 20px; border-radius: 10px; box-shadow: 0 20px 40px #0f172a40; max-height: 94vh; overflow: auto; max-width: 96vw; }
+.dialog h2 { margin: 0 0 12px; font-size: 18px; }
+.dialog select, .dialog input[type='number'] { height: 28px; padding: 0 8px; border: 1px solid #cbd5e1; border-radius: 6px; }
+.fields { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-bottom: 8px; font-size: 13px; }
+.fields label { display: flex; gap: 6px; align-items: center; }
+.fields input[type='number'] { width: 64px; }
+.actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 16px; }
 .pdot { position: absolute; width: 10px; height: 10px; margin: -5px 0 0 -5px; border-radius: 50%; background: #f5b700; border: 1px solid #333; cursor: pointer; }
 .pdot.sel { background: #60a5fa; border-color: #1d4ed8; }
 .pdot .dir { position: absolute; left: 4px; top: 3px; width: 14px; height: 2px; background: #f97316; transform-origin: 0 50%; pointer-events: none; }

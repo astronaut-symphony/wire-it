@@ -37,6 +37,15 @@ export function diagramBounds(nodes: Node[], edges: Edge[]): Rect {
   } else {
     for (const e of edges) for (const p of (e.data as { points?: { x: number; y: number }[] } | undefined)?.points ?? []) grow(p.x, p.y);
   }
+  // a label moved away from its component can sit outside the node box (width is a rough guess from the text length)
+  for (const n of nodes) {
+    const d = n.data as { label?: string; value?: string; labelPos?: { x: number; y: number }; labelRot?: number };
+    if (n.type !== 'comp' || !d.labelPos) continue;
+    let [w, h] = [Math.max(d.label?.length ?? 0, d.value?.length ?? 0) * 7, d.value ? 28 : 14];
+    const [cx, cy] = [n.position.x + d.labelPos.x + w / 2, n.position.y + d.labelPos.y + h / 2];
+    if ((d.labelRot ?? 0) % 180) [w, h] = [h, w]; // turned a quarter: it pivots around its centre
+    grow(cx - w / 2, cy - h / 2, w, h);
+  }
   const pad = 30;
   return { x: x1 - pad, y: y1 - pad, width: x2 - x1 + 2 * pad, height: y2 - y1 + 2 * pad };
 }

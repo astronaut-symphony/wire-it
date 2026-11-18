@@ -27,7 +27,9 @@
 .bendhit.h { cursor: ns-resize; }
 .bendhit.v { cursor: ew-resize; }
 .bendwrap:hover .bend { fill: #2563eb; }
-.cap { position: absolute; top: -16px; left: 0; font-size: 11px; color: #333; white-space: nowrap; }
+.cap.moving { cursor: move; outline: 1px dashed #2563eb; background: #eff6ff; padding: 0 3px; margin: -1px -4px; }
+.capval { font-size: 10px; color: #9ca3af; }
+.cap { transform-origin: center; position: absolute; font-size: 11px; color: #333; white-space: nowrap; }
 .missing { padding: 8px; border: 1px dashed red; color: red; }
 .jnode { position: relative; width: 14px; height: 14px; }
 .jhandle.react-flow__handle { width: 14px; height: 14px; min-width: 0; min-height: 0; box-sizing: border-box; border: 0; border-radius: 50%; background: transparent; cursor: crosshair; }

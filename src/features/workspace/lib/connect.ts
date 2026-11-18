@@ -1,5 +1,5 @@
 import type { Connection, Edge, Node } from '@xyflow/react';
-import { DIR_POS, POS_VEC, STUB, compSize, pinDir, rotDir, rotPt } from '@/shared/lib/geometry';
+import { DIR_POS, POS_VEC, STUB, compSize, isFree, pinDir, rotDir, rotPt } from '@/shared/lib/geometry';
 import { JR, PIN, type Component } from '@/shared/types';
 
 const same = (a?: string | null, b?: string | null) => (a ?? null) === (b ?? null);
@@ -44,8 +44,8 @@ export function connectPins(
     const rot = d.rot ?? 0;
     const [px, py] = rotPt(pin.x, pin.y, rot);
     const size = compSize(comp, rot);
-    const v = POS_VEC[DIR_POS[rotDir(pinDir(pin, comp), rot)]];
-    const reach = PIN / 2 + STUB; // half the pin handle + the wire's straight stub
+    const v = isFree(pin) ? { x: 0, y: 0 } : POS_VEC[DIR_POS[rotDir(pinDir(pin, comp), rot)]];
+    const reach = PIN / 2 + STUB; // half the pin handle + the wire's straight stub (a free pin has no stub: the dot sits on it)
     const jx = node.position.x + px * size.w + v.x * reach;
     const jy = node.position.y + py * size.h + v.y * reach;
     let i = 1;

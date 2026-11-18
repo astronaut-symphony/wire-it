@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { genPins, groupPins, snapOrigin } from './pins';
+import { genPins, groupPins, mirror, snapOrigin, type Group } from './pins';
 
 describe('genPins', () => {
   it('lays out count x rows at the given pitch', () => {
@@ -68,5 +68,18 @@ describe('snapOrigin', () => {
     const r = snapOrigin({ x: 0.2, y: 0.297 }, offs, others, 0.01, 0.01);
     expect(r.o.x).toBe(0.2);
     expect(r.o.y).toBeCloseTo(0.3);
+  });
+});
+
+describe('mirror', () => {
+  const g: Group = { id: 'a', pitch: 1, count: 2, rows: 2, dir: 'right', origin: { x: 0.5, y: 0.5 }, skip: [] };
+  const at = (x: Group) => groupPins(x, 10, 1).map((p) => [Math.round(p.x * 100), Math.round(p.y * 100)]);
+  it('flips the group left-right around its first pin', () => {
+    expect(at(g)).toEqual([[50, 50], [60, 50], [50, 60], [60, 60]]);
+    expect(at(mirror(g, 'h'))).toEqual([[50, 50], [40, 50], [50, 60], [40, 60]]);
+  });
+  it('flips the group up-down, and twice is a half turn', () => {
+    expect(at(mirror(g, 'v'))).toEqual([[50, 50], [60, 50], [50, 40], [60, 40]]);
+    expect(at(mirror(mirror(g, 'h'), 'v'))).toEqual([[50, 50], [40, 50], [50, 40], [40, 40]]);
   });
 });

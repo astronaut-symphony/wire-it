@@ -20,6 +20,7 @@ export function useWorkspaceStore(nodes: Node[], edges: Edge[], setNodes: (n: No
   const [customs, setCustoms] = useState<Component[]>([]);
   const [projects, setProjects] = useState<Proj[]>([]);
   const [activeId, setActiveId] = useState<string>(''); // the project whose nodes / edges are on the canvas ('' = none)
+  const [notice, setNotice] = useState(''); // message for the user, shown by the app (e.g. a file that would not open)
   const [ready, setReady] = useState(false); // saved workspace loaded
   const [route, setRoute] = useState<Route>(() => parseRoute(location.hash));
   const loaded = useRef(false);
@@ -146,7 +147,7 @@ export function useWorkspaceStore(nodes: Node[], edges: Edge[], setNodes: (n: No
       setCustoms((cs) => [...cs, ...p.components.filter((c) => !cs.some((x) => x.id === c.id))]);
       newProject(p.name ?? f.name.replace(/\.[^.]+$/, ''), { nodes: p.nodes, edges: p.edges });
     } catch (e) {
-      alert(`Could not open the file: ${(e as Error).message}`);
+      setNotice(`Could not open the file: ${(e as Error).message}`);
     }
   }
 
@@ -170,6 +171,8 @@ export function useWorkspaceStore(nodes: Node[], edges: Edge[], setNodes: (n: No
     deleteProject,
     renameProject,
     importProject,
+    notice,
+    setNotice,
     usedIds,
   };
 }

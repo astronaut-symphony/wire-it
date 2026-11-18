@@ -47,3 +47,10 @@ async function fromRaster(file: Blob): Promise<Imported> {
 export async function importImage(file: File): Promise<Imported> {
   return file.type === 'image/svg+xml' || /\.svg$/i.test(file.name) ? sanitizeSvg(await file.text()) : fromRaster(file);
 }
+
+/** The image turned 90 degrees clockwise: a point (x, y) lands at (h - y, x), so the size swaps. */
+export const rotateImage = ({ svg, w, h }: Imported): Imported => ({
+  w: h,
+  h: w,
+  svg: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${h} ${w}"><g transform="translate(${h} 0) rotate(90)">${svg.replace(/^<svg /, `<svg width="${w}" height="${h}" `)}</g></svg>`,
+});

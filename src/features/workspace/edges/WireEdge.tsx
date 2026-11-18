@@ -1,13 +1,14 @@
 import { useContext, useRef, type PointerEvent, type MouseEvent } from 'react';
-import { BaseEdge, useNodes, useReactFlow, type EdgeProps } from '@xyflow/react';
+import { BaseEdge, useNodes, useReactFlow, type EdgeProps, type Position } from '@xyflow/react';
 import { MenuCtx } from '@/features/workspace/menu/menu';
 import { Angle, GitBranch, Palette, Plus, RotateCcw, Trash2, X } from 'lucide-react';
 import { WIRE_COLORS, WIRE_COLOR_NAMES } from '@/features/workspace/Toolbar';
 import { layerMenu } from '@/features/workspace/lib/layers';
 import { Actions } from '@/features/workspace/context/actions';
-import { JR } from '@/shared/types';
+import { Comps } from '@/features/workspace/context/comps';
+import { JR, PIN } from '@/shared/types';
 import {
-  POS_VEC, STUB, elbowPath, moveRun, roundedPath, runs, tidy,
+  POS_VEC, STUB, isFree, elbowPath, moveRun, roundedPath, runs, tidy,
   type Pt, type Run, type V,
 } from '@/shared/lib/geometry';
 import '@/features/workspace/workspace.css';
@@ -47,6 +48,7 @@ export function WireEdge({
   const openMenu = useContext(MenuCtx);
   const { moveEdge } = useContext(Actions);
   const nodes = useNodes();
+  const comps = useContext(Comps);
   const { points = [], ortho = false } = (data ?? {}) as { points?: Pt[]; ortho?: boolean };
   // chain at pointerdown + run being moved; a ref so pointermoves work from the original shape
   const dragRef = useRef<{ P: Pt[]; run: Run; idx: number; v: number; at: Pt; jv: number } | null>(null);
@@ -60,17 +62,28 @@ export function WireEdge({
     Math.abs(to.x - from.x) >= Math.abs(to.y - from.y)
       ? { x: Math.sign(to.x - from.x) || 1, y: 0 }
       : { x: 0, y: Math.sign(to.y - from.y) };
+  // a free pin, like a junction dot, has no stub: the wire leaves it straight towards the other end
+  const free = (nid: string, h?: string | null) => {
+    const d = nodes.find((x) => x.id === nid)?.data as { componentId?: string } | undefined;
+    return isFree(comps.get(d?.componentId ?? '')?.pins.find((p) => p.id === h));
+  };
+  const fS = free(source, sourceHandleId);
+  const fT = free(target, targetHandleId);
   const cS = center(source);
   const cT = center(target);
-  const S = cS ?? { x: sourceX, y: sourceY };
-  const T = cT ?? { x: targetX, y: targetY };
-  const sv0 = cS ? toward(S, points[0] ?? T) : POS_VEC[sourcePosition];
-  const ev0 = cT ? toward(T, points[points.length - 1] ?? S) : POS_VEC[targetPosition];
+  // react-flow reports the edge of the pin handle facing its side; the pin's centre is half a handle back
+  const centre = (x: number, y: number, pos: Position) => ({ x: x - (POS_VEC[pos].x * PIN) / 2, y: y - (POS_VEC[pos].y * PIN) / 2 });
+  const pinS = cS ? null : centre(sourceX, sourceY, sourcePosition);
+  const pinT = cT ? null : centre(targetX, targetY, targetPosition);
+  const S = cS ?? (fS ? pinS! : { x: sourceX, y: sourceY });
+  const T = cT ?? (fT ? pinT! : { x: targetX, y: targetY });
+  const sv0 = cS || fS ? toward(S, points[0] ?? T) : POS_VEC[sourcePosition];
+  const ev0 = cT || fT ? toward(T, points[points.length - 1] ?? S) : POS_VEC[targetPosition];
   const sv = sv0;
   const ev = ev0;
   // s / e: where the wire's own, editable part starts and ends (pin stub end, or the junction dot itself)
-  const s = { x: S.x + sv.x * (cS ? 0 : STUB), y: S.y + sv.y * (cS ? 0 : STUB) };
-  const e = { x: T.x + ev.x * (cT ? 0 : STUB), y: T.y + ev.y * (cT ? 0 : STUB) };
+  const s = { x: S.x + sv.x * (cS || fS ? 0 : STUB), y: S.y + sv.y * (cS || fS ? 0 : STUB) };
+  const e = { x: T.x + ev.x * (cT || fT ? 0 : STUB), y: T.y + ev.y * (cT || fT ? 0 : STUB) };
 
   let mid: V[]; // s ... e
   if (!ortho) mid = [s, ...points, e].map((p, i, a) => ({ p, wp: i === 0 || i === a.length - 1 ? -1 : i - 1 }));
@@ -241,6 +254,15 @@ export function WireEdge({
     );
   }
 
+  // a free pin's wire starts on the pin itself, so the hit area starts one handle away from it to keep the pin clickable
+  const hit = verts.slice(1, -1).map((v) => v.p);
+  const back = (a: Pt, b?: Pt) => {
+    const d = b ? Math.hypot(b.x - a.x, b.y - a.y) : 0;
+    return d > PIN * 2 ? { x: a.x + ((b!.x - a.x) / d) * PIN, y: a.y + ((b!.y - a.y) / d) * PIN } : a;
+  };
+  if (fS && !cS) hit[0] = back(hit[0], hit[1]);
+  if (fT && !cT) hit[hit.length - 1] = back(hit[hit.length - 1], hit[hit.length - 2]);
+
   return (
     <>
       <BaseEdge
@@ -250,12 +272,14 @@ export function WireEdge({
       />
       {/* Wires sit above components, so the hit area stops at the stub ends: pins stay clickable to start a new wire */}
       <path
-        d={roundedPath(verts.slice(1, -1).map((v) => v.p), RADIUS)}
+        d={roundedPath(hit, RADIUS)}
         fill="none"
         stroke="transparent"
         strokeWidth={16}
         onContextMenu={(ev) => openWireMenu(ev)}
       />
+      {/* the pin dots are drawn again here so they sit on top of the wire, not under it */}
+      {[pinS, pinT].map((c, i) => c && <circle key={i} cx={c.x} cy={c.y} r={PIN / 2} fill="#f5b700" stroke="#333" strokeWidth={1} pointerEvents="none" />)}
       {selected &&
         !ortho &&
         corners.map((p, i) => (

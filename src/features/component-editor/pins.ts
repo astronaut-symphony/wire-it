@@ -19,6 +19,7 @@ type PinGrid = {
   count: number;
   rows: number;
   dir: GroupDir;
+  flip?: boolean; // rows go to the other side of the run
   start: number; // number of the first pin name
 };
 
@@ -28,7 +29,7 @@ export function genPins(origin: { x: number; y: number }, g: PinGrid): Pin[] {
   for (let r = 0; r < g.rows; r++) {
     for (let i = 0; i < g.count; i++) {
       const along = i * g.pitchMm * g.pxPerMm;
-      const across = r * g.rowMm * g.pxPerMm;
+      const across = (g.flip ? -1 : 1) * r * g.rowMm * g.pxPerMm;
       const a = AXIS[g.dir];
       const [dx, dy] = [a.x * along - a.y * across, a.y * along + a.x * across]; // rows = run turned 90deg clockwise
       const x = origin.x + dx / g.w;
@@ -52,9 +53,16 @@ export type Group = {
   count: number;
   rows: number;
   dir: GroupDir;
+  flip?: boolean;
   origin: { x: number; y: number };
   skip: number[]; // indices of pins the user deleted
 };
+
+const MIRROR = { h: { left: 'right', right: 'left' }, v: { up: 'down', down: 'up' } } as const;
+/** Mirrors a direction across the vertical (h: left <-> right) or horizontal (v: up <-> down) axis. */
+export const mirrorDir = <T extends string>(d: T, axis: 'h' | 'v'): T => ((MIRROR[axis] as Record<string, string>)[d] ?? d) as T;
+/** Mirrors a group around its first pin. A mirror reverses handedness, so the rows swap sides too. */
+export const mirror = (g: Group, axis: 'h' | 'v'): Group => ({ ...g, dir: mirrorDir(g.dir, axis), flip: !g.flip });
 
 /**
  * Pins of a group on the image (0..1), in order, minus the deleted ones. k = index before deletions (stable key).
@@ -62,7 +70,7 @@ export type Group = {
  * aspect = image height / width.
  */
 export function groupPins(g: Group, mmW: number, aspect: number): { k: number; x: number; y: number }[] {
-  const grid = { pitchMm: g.pitch, rowMm: g.pitch, pxPerMm: 1 / mmW, w: 1, h: aspect, count: g.count, rows: g.rows, dir: g.dir, start: 1 };
+  const grid = { pitchMm: g.pitch, rowMm: g.pitch, pxPerMm: 1 / mmW, w: 1, h: aspect, count: g.count, rows: g.rows, dir: g.dir, flip: g.flip, start: 1 };
   return genPins(g.origin, grid).flatMap((p, k) => (g.skip.includes(k) ? [] : [{ k, x: p.x, y: p.y }]));
 }
 

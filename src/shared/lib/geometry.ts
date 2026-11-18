@@ -27,7 +27,9 @@ export function autoDir(x: number, y: number, w: number, h: number): Dir {
   return d.reduce((a, b) => (b[1] < a[1] ? b : a))[0];
 }
 
-export const pinDir = (p: Pin, c: Component): Dir => p.dir ?? autoDir(p.x, p.y, c.w, c.h);
+// a free pin still needs a side for its handle; the wire itself ignores it (see isFree)
+export const pinDir = (p: Pin, c: Component): Dir => (p.dir && p.dir !== 'free' ? p.dir : autoDir(p.x, p.y, c.w, c.h));
+export const isFree = (p?: Pin) => p?.dir === 'free';
 
 // rotation is clockwise degrees (0/90/180/270) of the whole component
 const ORDER: Dir[] = ['up', 'right', 'down', 'left'];

@@ -1,18 +1,27 @@
-import { useEffect, useLayoutEffect, useRef, useState, type MouseEvent, type PointerEvent } from 'react';
+import { Fragment, useEffect, useLayoutEffect, useRef, useState, type MouseEvent, type PointerEvent, type ReactNode } from 'react';
+import { ArrowDown, ChevronDown, ArrowLeft, ArrowRight, ArrowUp, FlipHorizontal, FlipVertical, ImagePlus, Minus, Move, Plus, RotateCw, Save, Trash2, X } from 'lucide-react';
+import { Menu } from '@mantine/core';
 import { PITCHES } from './pitches';
-import { ROTATE, groupPins, snapOrigin, type Group, type GroupDir } from './pins';
-import { importImage, svgUrl, type Imported } from '@/shared/lib/importImage';
-import { autoDir } from '@/shared/lib/geometry';
+import { ROTATE, groupPins, mirror, mirrorDir, snapOrigin, type Group, type GroupDir } from './pins';
+import { importImage, rotateImage, svgUrl, type Imported } from '@/shared/lib/importImage';
+import { autoDir, rotDir } from '@/shared/lib/geometry';
 import { sendComponent, takeDraft } from '@/shared/lib/inbox';
-import type { Component, Dir } from '@/shared/types';
+import type { Component, Dir, PinDir } from '@/shared/types';
 import './component-editor.css';
 
 const BASE_W = 720; // image width on screen at 100% zoom, px
-const DIRS: [Dir, string][] = [['up', '↑'], ['down', '↓'], ['left', '←'], ['right', '→']];
+// icons, not arrow characters: those draw at different sizes for horizontal and vertical
+const DIRS: [PinDir, string, ReactNode][] = [
+  ['up', 'Up', <ArrowUp size={14} />],
+  ['down', 'Down', <ArrowDown size={14} />],
+  ['left', 'Left', <ArrowLeft size={14} />],
+  ['right', 'Right', <ArrowRight size={14} />],
+  ['free', 'Free', <Move size={14} />],
+];
 const ANGLE: Record<Dir, number> = { right: 0, down: 90, left: 180, up: 270 };
 const GROUP_DIRS: [GroupDir, string][] = [['right', 'right'], ['down', 'down'], ['left', 'left'], ['up', 'up']];
 type Pt = { x: number; y: number };
-type Ovr = { label?: string; dir?: Dir }; // per-pin edits, keyed `${groupId}:${k}`
+type Ovr = { label?: string; dir?: PinDir }; // per-pin edits, keyed `${groupId}:${k}`
 const clamp01 = (v: number) => Math.min(1, Math.max(0, v));
 
 /**
@@ -31,9 +40,9 @@ export function ComponentEditor() {
   const [zoom, setZoom] = useState(1);
   const [adding, setAdding] = useState(false);
   const [status, setStatus] = useState('');
+  const [folded, setFolded] = useState<Set<string>>(new Set()); // sidebar headers that are collapsed
+  const [confirming, setConfirming] = useState(false);
   const [saved, setSaved] = useState(false);
-  const [showIds, setShowIds] = useState(true);
-  const [snapOn, setSnapOn] = useState(true);
   const [guides, setGuides] = useState<{ x?: number; y?: number } | null>(null); // matched coordinates while snapping
   const [widthText, setWidthText] = useState<string | null>(null); // what is being typed in the scale field
   const boxRef = useRef<HTMLDivElement>(null);
@@ -122,11 +131,25 @@ export function ComponentEditor() {
   // mouse drag of the selected group: its first pin (the one under the handle) lines up with the other groups' pins, within 6 screen px
   function dragOrigin(p: Pt) {
     if (!sg) return;
-    if (!snapOn) return setGuides(null), edit((g) => ({ ...g, origin: p }));
     const r = snapOrigin(p, [{ x: 0, y: 0 }], pins.filter((q) => q.gid !== sg.id), 6 / boxW, 6 / boxH);
     setGuides(r.gx === undefined && r.gy === undefined ? null : { x: r.gx, y: r.gy });
     edit((g) => ({ ...g, origin: { x: clamp01(r.o.x), y: clamp01(r.o.y) } }));
   }
+  // turns the whole component a quarter turn clockwise: the image, and the pin groups and wire directions with it
+  function rotateComponent() {
+    if (!img) return;
+    setImg(rotateImage(img));
+    setImgW(imgW * aspect); // the old height is the new width, in mm
+    setGroups((gs) => gs.map((g) => ({ ...g, dir: ROTATE[g.dir], origin: { x: 1 - g.origin.y, y: g.origin.x } })));
+    setOvr((o) => Object.fromEntries(Object.entries(o).map(([k, v]) => [k, v.dir && v.dir !== 'free' ? { ...v, dir: rotDir(v.dir, 90) } : v])));
+    setGuides(null);
+    setSaved(false);
+  }
+  // mirrors the selected group and the wire directions set by hand on its pins, so they still point the same way on the image
+  const flip = (axis: 'h' | 'v') => {
+    edit((g) => mirror(g, axis));
+    setOvr((o) => Object.fromEntries(Object.entries(o).map(([k, v]) => [k, k.startsWith(`${sel}:`) && v.dir ? { ...v, dir: mirrorDir(v.dir, axis) } : v])));
+  };
   const dropGroup = (id: string) => {
     setGroups((gs) => gs.filter((g) => g.id !== id));
     setOvr((o) => Object.fromEntries(Object.entries(o).filter(([k]) => !k.startsWith(`${id}:`))));
@@ -142,7 +165,7 @@ export function ComponentEditor() {
   }
   const patch = (key: string, p: Ovr) => (setSaved(false), setOvr((o) => ({ ...o, [key]: { ...o[key], ...p } })));
 
-  // Scale: a wider image makes the pins look smaller. Steps are 5% or 0.01 mm; the field takes any value.
+  // Scale: a wider image makes the pins look smaller. Steps are 5% or 0.1 mm; the field takes any value.
   const setW = (w: number) => {
     setImgW(Math.min(1000, Math.max(1, w)));
     setSaved(false);
@@ -189,69 +212,87 @@ export function ComponentEditor() {
 
   return (
     <div className="cepage">
-      <div className="cebar">
-        <label>
-          Component name <input value={name} onChange={(e) => (setName(e.target.value), setSaved(false))} />
-        </label>
+      <header className="cebar">
+        <input className="ceinput name" value={name} placeholder="Component name" aria-label="Component name" onChange={(e) => (setName(e.target.value), setSaved(false))} />
         <label className="btn">
+          <ImagePlus size={14} />
           {img ? 'Replace image' : 'Add image'}
           <input type="file" accept="image/*,.svg" hidden onChange={(e) => (onFile(e.target.files?.[0]), (e.target.value = ''))} />
         </label>
-        <button onClick={() => setAdding(true)} disabled={!img}>
-          + Add pins
+        <button className="btn" onClick={rotateComponent} disabled={!img} title="Turn the image and its pins 90° clockwise">
+          <RotateCw size={14} /> Rotate component
+        </button>
+        <button className="btn" onClick={() => setAdding(true)} disabled={!img}>
+          <Plus size={14} /> Add pins
         </button>
         {err && <span className="err">{err}</span>}
-      </div>
+        <span className="spacer" />
+        {status && <span className="hint">{status}</span>}
+        <button className="btn primary" disabled={!img || !name.trim() || !pins.length || saved} onClick={() => setConfirming(true)}>
+          <Save size={14} /> {saved ? 'Saved' : 'Save component'}
+        </button>
+      </header>
 
-      {!img ? (
-        <p className="hint">Add the component image first (PNG, JPG, WebP, GIF, BMP or SVG), then add pins.</p>
-      ) : (
-        <div className="cebody">
-          <div className="cemain">
-            <div className="ceview" ref={viewRef}>
-              <div className="cepad">
-                <div ref={boxRef} className="cestage" style={{ width: boxW, height: boxH }} onClick={() => setSel(null)}>
-                  <img src={svgUrl(img.svg)} draggable={false} alt="" style={{ width: '100%', height: '100%', display: 'block', pointerEvents: 'none' }} />
-                  {pins.map((p) => (
-                    <i
-                      key={p.key}
-                      className={`pdot${p.gid === sel ? ' sel' : ''}`}
-                      title={`${p.no}${p.label ? ' ' + p.label : ''}`}
-                      style={{ left: `${p.x * 100}%`, top: `${p.y * 100}%` }}
-                      onClick={(e) => (e.stopPropagation(), setSel(p.gid))}
-                    >
-                      <b className="dir" style={{ transform: `rotate(${ANGLE[p.dir]}deg)` }} />
-                      {showIds && <u className={`pno ${p.horiz ? 'h' : 'v'}`}>{p.no}</u>}
-                    </i>
-                  ))}
-                  {guides?.x !== undefined && <div className="guide v" style={{ left: `${guides.x * 100}%` }} />}
-                  {guides?.y !== undefined && <div className="guide h" style={{ top: `${guides.y * 100}%` }} />}
-                  {sg && (
-                    <i
-                      className="grab"
-                      title="Drag to move this pin group"
-                      style={{ left: `${sg.origin.x * 100}%`, top: `${sg.origin.y * 100}%` }}
-                      {...grab(dragOrigin, () => setGuides(null))}
-                    />
-                  )}
+      <div className="cebody">
+        <div className="cemain">
+          <div className="cecanvas">
+            {!img ? (
+              <p className="ceempty">Add the component image first (PNG, JPG, WebP, GIF, BMP or SVG), then add pins.</p>
+            ) : (
+              <>
+                <div className="ceview" ref={viewRef}>
+                  <div className="cepad">
+                    <div ref={boxRef} className="cestage" style={{ width: boxW, height: boxH }} onClick={() => setSel(null)}>
+                      <img src={svgUrl(img.svg)} draggable={false} alt="" style={{ width: '100%', height: '100%', display: 'block', pointerEvents: 'none' }} />
+                      {pins.map((p) => (
+                        <i
+                          key={p.key}
+                          className={`pdot${p.gid === sel ? ' sel' : ''}`}
+                          title={`${p.no}${p.label ? ' ' + p.label : ''}`}
+                          style={{ left: `${p.x * 100}%`, top: `${p.y * 100}%` }}
+                          onClick={(e) => (e.stopPropagation(), setSel(p.gid))}
+                        >
+                          {p.dir !== 'free' && <b className="dir" style={{ transform: `rotate(${ANGLE[p.dir]}deg)` }} />}
+                          <u className={`pno ${p.horiz ? 'h' : 'v'}`}>{p.no}</u>
+                        </i>
+                      ))}
+                      {guides?.x !== undefined && <div className="guide v" style={{ left: `${guides.x * 100}%` }} />}
+                      {guides?.y !== undefined && <div className="guide h" style={{ top: `${guides.y * 100}%` }} />}
+                      {sg && (
+                        <i
+                          className="grab"
+                          title="Drag to move this pin group"
+                          style={{ left: `${sg.origin.x * 100}%`, top: `${sg.origin.y * 100}%` }}
+                          {...grab(dragOrigin, () => setGuides(null))}
+                        />
+                      )}
+                    </div>
+                  </div>
                 </div>
-              </div>
-            </div>
+              </>
+            )}
+          </div>
 
+          {img && (
+            <>
+            <div className="cechip">
+              {groups.length === 0
+                ? 'Click "Add pins" to place a pin header.'
+                : sg
+                  ? 'Drag the circle to put pin 1 on a hole, then adjust Image scale until the pin spacing fits.'
+                  : 'Click a pin to select its header.'}
+            </div>
             <div className="cetools">
               <div className="cegroup">
                 <span>Zoom</span>
-                <button onClick={() => zoomTo(zoom / 1.25)} title="Zoom out (Ctrl + mouse wheel)">−</button>
+                <button onClick={() => zoomTo(zoom / 1.25)} title="Zoom out (Ctrl + mouse wheel)"><Minus size={12} /></button>
                 <span className="val">{Math.round(zoom * 100)}%</span>
-                <button onClick={() => zoomTo(zoom * 1.25)} title="Zoom in (Ctrl + mouse wheel)">+</button>
-                <label title="Show pin numbers on the image">
-                  <input type="checkbox" checked={showIds} onChange={(e) => setShowIds(e.target.checked)} /> Pin no.
-                </label>
+                <button onClick={() => zoomTo(zoom * 1.25)} title="Zoom in (Ctrl + mouse wheel)"><Plus size={12} /></button>
               </div>
               <div className="cegroup">
                 <span>Image scale</span>
                 <button onClick={() => setW(imgW / 1.05)} title="Image 5% smaller: pins look bigger">−5%</button>
-                <button onClick={() => step(-0.01)} title="Image 0.01 mm smaller">−0.01</button>
+                <button onClick={() => step(-0.1)} title="Image 0.1 mm smaller">−0.1</button>
                 <input
                   className="mm"
                   type="number"
@@ -268,86 +309,118 @@ export function ComponentEditor() {
                   onBlur={() => setWidthText(null)}
                 />
                 <span>mm</span>
-                <button onClick={() => step(0.01)} title="Image 0.01 mm larger">+0.01</button>
+                <button onClick={() => step(0.1)} title="Image 0.1 mm larger">+0.1</button>
                 <button onClick={() => setW(imgW * 1.05)} title="Image 5% larger: pins look smaller">+5%</button>
               </div>
               <div className="cegroup">
                 <span>Move pins</span>
-                <button disabled={!sg} onClick={() => nudge(-1, 0)} title="Move 1px left">←</button>
-                <button disabled={!sg} onClick={() => nudge(0, -1)} title="Move 1px up">↑</button>
-                <button disabled={!sg} onClick={() => nudge(0, 1)} title="Move 1px down">↓</button>
-                <button disabled={!sg} onClick={() => nudge(1, 0)} title="Move 1px right">→</button>
-                <label title="While dragging with the mouse, the first pin of the group lines up with existing pins (horizontally or vertically)">
-                  <input type="checkbox" checked={snapOn} onChange={(e) => setSnapOn(e.target.checked)} /> Snap to align
-                </label>
+                <button disabled={!sg} onClick={() => nudge(-1, 0)} title="Move 1px left"><ArrowLeft size={12} /></button>
+                <button disabled={!sg} onClick={() => nudge(0, -1)} title="Move 1px up"><ArrowUp size={12} /></button>
+                <button disabled={!sg} onClick={() => nudge(0, 1)} title="Move 1px down"><ArrowDown size={12} /></button>
+                <button disabled={!sg} onClick={() => nudge(1, 0)} title="Move 1px right"><ArrowRight size={12} /></button>
               </div>
               <div className="cegroup">
                 <span>Pin</span>
-                <button disabled={!sg} onClick={() => edit((g) => ({ ...g, dir: ROTATE[g.dir] }))} title="Rotate the pin group 90°">↻ Rotate</button>
-                <button disabled={!sg} onClick={() => sel && dropGroup(sel)} title="Delete the selected pin group">Delete</button>
+                <button disabled={!sg} onClick={() => edit((g) => ({ ...g, dir: ROTATE[g.dir] }))} title="Rotate the pin group 90°" aria-label="Rotate pin group"><RotateCw size={14} /></button>
+                <button disabled={!sg} onClick={() => flip('h')} title="Mirror horizontally" aria-label="Mirror horizontally"><FlipHorizontal size={14} /></button>
+                <button disabled={!sg} onClick={() => flip('v')} title="Mirror vertically" aria-label="Mirror vertically"><FlipVertical size={14} /></button>
+                <button className="danger" disabled={!sg} onClick={() => sel && dropGroup(sel)} title="Delete the selected pin group" aria-label="Delete pin group"><Trash2 size={14} /></button>
               </div>
             </div>
-            <p className="hint">
-              {groups.length === 0
-                ? 'Click "+ Add pins" to place a pin group at its real size.'
-                : sg
-                  ? 'Pin group selected (blue). Drag the white circle or use the move buttons until the first pin sits on a hole in the image, then adjust Image scale until the pin spacing matches too. The image stays put; the pins change size.'
-                  : 'Click a pin to select its group.'}
-            </p>
-          </div>
+            </>
+          )}
+        </div>
 
-          <aside className="ceside">
-            <h3>Pin ({pins.length})</h3>
+        <aside className="ceside">
+          <h3>
+            Pins <span className="count">{pins.length}</span>
+          </h3>
+          <div className="ceside-body">
             {pins.length === 0 ? (
               <p className="hint">Each pin's number, label and wire exit direction show up here.</p>
             ) : (
               <>
-                <label className="bulk">
-                  Wire direction for all pins
-                  <select
-                    value=""
-                    onChange={(e) => {
-                      const d = e.target.value as Dir;
-                      if (d) pins.forEach((p) => patch(p.key, { dir: d }));
-                    }}
-                  >
-                    <option value="">-</option>
-                    {DIRS.map(([d, t]) => (
-                      <option key={d} value={d}>{t}</option>
-                    ))}
-                  </select>
-                </label>
-                <p className="hint">The orange line on a pin = the direction the wire leaves it.</p>
-                <div className="phead">
-                  <span>No.</span>
-                  <span>Label</span>
-                  <span>Dir.</span>
-                  <span />
-                </div>
-                {pins.map((p) => (
-                  <div className={`prow${p.gid === sel ? ' sel' : ''}`} key={p.key} onClick={() => setSel(p.gid)}>
-                    <span className="no">{p.no}</span>
-                    <input value={p.label} placeholder="e.g. VCC" title="Pin label" onChange={(e) => patch(p.key, { label: e.target.value })} />
-                    <select value={p.dir} title="Wire exit direction" onChange={(e) => patch(p.key, { dir: e.target.value as Dir })}>
-                      {DIRS.map(([d, t]) => (
-                        <option key={d} value={d}>{t}</option>
-                      ))}
-                    </select>
-                    <button title="Delete this pin (other numbers adjust)" onClick={(e) => (e.stopPropagation(), dropPin(p.gid, p.k))}>x</button>
-                  </div>
-                ))}
+                <p className="hint">The orange line on a pin = the direction the wire leaves it. Free = any direction.</p>
+                {groups.map((g, i) => {
+                  const gp = pins.filter((p) => p.gid === g.id);
+                  if (!gp.length) return null;
+                  const open = !folded.has(g.id);
+                  return (
+                    <section className={`pgroup${g.id === sel ? ' sel' : ''}`} key={g.id} onClick={() => setSel(g.id)}>
+                      <div className="pghead">
+                        <button
+                          className="x"
+                          title={open ? 'Collapse' : 'Expand'}
+                          aria-expanded={open}
+                          onClick={(e) => (e.stopPropagation(), setFolded((f) => (f.delete(g.id) || f.add(g.id), new Set(f))))}
+                        >
+                          <ChevronDown size={14} style={{ transform: open ? undefined : 'rotate(-90deg)' }} />
+                        </button>
+                        <b>Header {i + 1}</b>
+                        <span className="hint">{gp.length} pins</span>
+                        <span className="spacer" />
+                        <DirSelect label="Wire dir." list={gp} onPick={(d) => gp.forEach((p) => patch(p.key, { dir: d }))} />
+                      </div>
+                      {open && <div className="phead">
+                        <span>No.</span>
+                        <span>Label</span>
+                        <span>Dir.</span>
+                        <span />
+                      </div>}
+                      {open &&
+                        Array.from({ length: g.rows }, (_, row) => ({ row, list: gp.filter((p) => Math.floor(p.k / g.count) === row) }))
+                          .filter((r) => r.list.length)
+                          .map(({ row, list }) => (
+                            <Fragment key={row}>
+                              {g.rows > 1 && (
+                                <div className="prhead">
+                                  <span>Row {row + 1}</span>
+                                  <span className="spacer" />
+                                  <DirSelect label="Wire dir." list={list} onPick={(d) => list.forEach((p) => patch(p.key, { dir: d }))} />
+                                </div>
+                              )}
+                              {list.map((p) => (
+                                <div className="prow" key={p.key}>
+                                  <span className="no">{p.no}</span>
+                                  <input className="ceinput" value={p.label} placeholder="Add label (optional)" title="Pin label" onChange={(e) => patch(p.key, { label: e.target.value })} />
+                                  <DirPick value={p.dir} title="Wire exit direction" onPick={(d) => patch(p.key, { dir: d })} />
+                                  <button className="x" title="Delete this pin (other numbers adjust)" onClick={(e) => (e.stopPropagation(), dropPin(p.gid, p.k))}><X size={14} /></button>
+                                </div>
+                              ))}
+                            </Fragment>
+                          ))}
+                    </section>
+                  );
+                })}
               </>
             )}
-          </aside>
+          </div>
+        </aside>
+      </div>
+
+      {confirming && (
+        <div className="modal">
+          <div className="dialog">
+            <h2>Save component?</h2>
+            <p>
+              <b>{name.trim()}</b> with {pins.length} pins will be added to your components.
+            </p>
+            <div className="actions">
+              <button onClick={() => setConfirming(false)}>Cancel</button>
+              <button
+                className="primary"
+                autoFocus
+                onClick={() => {
+                  setConfirming(false);
+                  void save();
+                }}
+              >
+                Save
+              </button>
+            </div>
+          </div>
         </div>
       )}
-
-      <div className="cefooter">
-        <span className="hint">{status}</span>
-        <button className="primary" disabled={!img || !name.trim() || !pins.length || saved} onClick={save}>
-          {saved ? 'Saved' : 'Save component'}
-        </button>
-      </div>
 
       {adding && (
         <AddPins
@@ -363,6 +436,38 @@ export function ComponentEditor() {
         />
       )}
     </div>
+  );
+}
+
+/** A direction dropdown with icons; value '' (pins that differ) shows "-". */
+function DirPick({ value, title, onPick }: { value: PinDir | ''; title: string; onPick: (d: PinDir) => void }) {
+  return (
+    <Menu position="bottom-end" withinPortal>
+      <Menu.Target>
+        <button className="ceinput dirpick" title={title}>
+          {DIRS.find(([d]) => d === value)?.[2] ?? '-'}
+          <ChevronDown size={12} />
+        </button>
+      </Menu.Target>
+      <Menu.Dropdown>
+        {DIRS.map(([d, name, icon]) => (
+          <Menu.Item key={d} leftSection={icon} onClick={() => onPick(d)}>
+            {name}
+          </Menu.Item>
+        ))}
+      </Menu.Dropdown>
+    </Menu>
+  );
+}
+
+/** Sets one wire direction for a set of pins; shows it when they all agree, else "-". Pins can still be changed one by one. */
+function DirSelect({ label, list, onPick }: { label: string; list: { dir: PinDir }[]; onPick: (d: PinDir) => void }) {
+  const same = list.every((p) => p.dir === list[0].dir) ? list[0].dir : '';
+  return (
+    <span className="dirset">
+      {label}
+      <DirPick value={same} title="Sets the wire exit direction of all these pins; each pin can still be changed below" onPick={onPick} />
+    </span>
   );
 }
 

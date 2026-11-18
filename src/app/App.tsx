@@ -16,7 +16,7 @@ import {
   type Viewport,
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
-import { Lock, LockOpen, Maximize, Merge, Pencil, RotateCcw, RotateCw, Trash2 } from 'lucide-react';
+import { Lock, LockOpen, Maximize, Merge, Move, Pencil, RotateCcw, RotateCw, Tag, Trash2 } from 'lucide-react';
 import { Home } from '@/features/home/Home';
 import { serialize } from '@/features/projects/model';
 import { useWorkspaceStore } from '@/features/projects/useWorkspaceStore';
@@ -35,6 +35,8 @@ import { ComponentNode } from '@/features/workspace/nodes/ComponentNode';
 import { JunctionNode } from '@/features/workspace/nodes/JunctionNode';
 import { ProjectTitle } from '@/features/workspace/ProjectTitle';
 import { Sidebar } from '@/features/workspace/Sidebar';
+import { Button, Group, Modal, Text } from '@mantine/core';
+import { PromptModal, type Ask } from '@/features/workspace/PromptModal';
 import { Toolbar, WIRE_COLORS } from '@/features/workspace/Toolbar';
 import { compSize, rotPt, snapByPin } from '@/shared/lib/geometry';
 
@@ -55,9 +57,10 @@ function Shell() {
   const [wireColor, setWireColor] = useState(WIRE_COLORS[0]);
   const [orthoDefault, setOrthoDefault] = useState(true);
   const [locked, setLocked] = useState(false); // canvas lock: no moving, connecting or selecting
+  const [ask, setAsk] = useState<Ask | null>(null); // the one-line text dialog (rename, value)
   const views = useRef(new Map<string, Viewport>()); // pan / zoom per project, kept while the page stays open
 
-  const { customs, setCustoms, activeId, active, ready, route, go, synced, newProject, deleteProject, renameProject, importProject, usedIds } =
+  const { customs, setCustoms, activeId, active, ready, route, go, synced, newProject, deleteProject, renameProject, importProject, notice, setNotice, usedIds } =
     useWorkspaceStore(nodes, edges, setNodes, setEdges);
   const fileBase = (active?.name || 'tinker-part').replace(/[\\/:*?"<>|]/g, '_'); // export files are named after the project
 
@@ -188,8 +191,12 @@ function Shell() {
     ev.preventDefault();
     setNodes((ns) => ns.map((x) => ({ ...x, selected: x.id === n.id })));
     const rename = (what: string) => () => {
-      const v = prompt(`${what} name`, String((n.data as { label: string }).label))?.trim();
-      if (v) setNodes((ns) => ns.map((x) => (x.id === n.id ? { ...x, data: { ...x.data, label: v } } : x)));
+      setAsk({
+        title: `Rename ${what.toLowerCase()}`,
+        label: 'Name',
+        initial: String((n.data as { label: string }).label),
+        onSubmit: (v) => v && setNodes((ns) => ns.map((x) => (x.id === n.id ? { ...x, data: { ...x.data, label: v } } : x))),
+      });
     };
     const remove = () => {
       setNodes((ns) => ns.filter((x) => x.id !== n.id));
@@ -225,6 +232,30 @@ function Shell() {
         { icon: <RotateCcw size={14} />, label: 'Rotate left 90° (Shift+R)', onClick: () => rotate([n.id], -90) },
         layerMenu((op) => setNodes((ns) => moveWithin(ns, n.id, op, (x) => x.type === 'comp'))), // among components only
         { icon: <Pencil size={14} />, label: 'Rename', onClick: rename('Component') },
+        {
+          icon: <Tag size={14} />,
+          label: 'Set value',
+          onClick: () => {
+            setAsk({
+              title: 'Set value',
+              label: 'Value (leave empty to remove)',
+              placeholder: 'e.g. 10kΩ',
+              initial: (n.data as { value?: string }).value ?? '',
+              onSubmit: (v) => setNodes((ns) => ns.map((x) => (x.id === n.id ? { ...x, data: { ...x.data, value: v || undefined } } : x))),
+            });
+          },
+        },
+        {
+          icon: <RotateCw size={14} />,
+          label: 'Rotate label',
+          onClick: () =>
+            setNodes((ns) => ns.map((x) => (x.id === n.id ? { ...x, data: { ...x.data, labelRot: (((x.data as { labelRot?: number }).labelRot ?? 0) + 90) % 360 } } : x))),
+        },
+        {
+          icon: <Move size={14} />,
+          label: 'Move label',
+          onClick: () => setNodes((ns) => ns.map((x) => (x.id === n.id ? { ...x, data: { ...x.data, movingLabel: true } } : x))),
+        },
         { icon: <Trash2 size={14} />, label: 'Delete component', danger: true, onClick: remove },
       ],
     });
@@ -338,6 +369,13 @@ function Shell() {
               </div>
             )
           )}
+          <PromptModal ask={ask} onClose={() => setAsk(null)} />
+          <Modal opened={!!notice} onClose={() => setNotice('')} title="Something went wrong" centered size="sm">
+            <Text size="sm">{notice}</Text>
+            <Group justify="flex-end" mt="md">
+              <Button onClick={() => setNotice('')}>OK</Button>
+            </Group>
+          </Modal>
         </Actions.Provider>
       </MenuCtx.Provider>
     </Comps.Provider>

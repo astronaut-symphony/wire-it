@@ -1,8 +1,10 @@
 import type { Edge, Node } from '@xyflow/react';
 
 export type Dir = 'up' | 'down' | 'left' | 'right';
+/** 'free': the wire may leave the pin in any direction (no straight stub). */
+export type PinDir = Dir | 'free';
 // x,y: 0..1 of the image box; dir: side the wire leaves the pin (default: nearest image edge)
-export type Pin = { id: string; name: string; label?: string; x: number; y: number; dir?: Dir };
+export type Pin = { id: string; name: string; label?: string; x: number; y: number; dir?: PinDir };
 /** What a pin is called on screen and in the CSV: number, plus label when it has one. */
 export const pinText = (p: Pin) => (p.label ? `${p.name} ${p.label}` : p.name);
 export type Component = {
