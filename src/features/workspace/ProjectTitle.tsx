@@ -17,6 +17,7 @@ export function ProjectTitle({ name, onRename }: { name: string; onRename: (name
         <TextInput
           size="xs"
           w={220}
+          styles={{ input: { height: 28, minHeight: 28 } }} // as high as the buttons beside it
           autoFocus
           value={value}
           onChange={(e) => setValue(e.currentTarget.value)}

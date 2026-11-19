@@ -1,8 +1,8 @@
 /* Workspace: the wiring canvas page. Selectors are scoped under .workspace so they cannot leak into other pages. */
-.workspace { display: grid; grid-template-columns: 220px 1fr; grid-template-rows: auto 1fr; height: 100%; }
-.workspace > header { grid-column: 1 / -1; }
+.workspace { display: grid; grid-template-columns: 220px 1fr; height: 100%; }
 /* min-height: 0 lets the row shrink so the library scrolls instead of pushing the button off screen */
 .workspace > aside { min-height: 0; border-right: 1px solid #ddd; padding: 8px; display: flex; flex-direction: column; gap: 8px; overflow: hidden; }
+.sidehr { margin: 0 -8px; border: 0; border-top: 1px solid #ddd; } /* runs edge to edge of the sidebar, past its padding */
 .libhead { display: flex; align-items: center; justify-content: space-between; padding: 0 2px; font-size: 14px; font-weight: 600; }
 .lib { flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 6px; }
 .lib summary { display: flex; align-items: center; gap: 4px; padding: 4px 2px; font-size: 12px; font-weight: 600; color: #555; cursor: pointer; list-style: none; user-select: none; }
@@ -13,7 +13,6 @@
 .item img { width: 40px; height: 32px; object-fit: contain; }
 .item span { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .workspace main { display: flex; flex-direction: column; min-width: 0; min-height: 0; }
-.workspace header { display: flex; align-items: center; gap: 8px; padding: 8px; border-bottom: 1px solid #ddd; flex-wrap: wrap; }
 .spacer { flex: 1; }
 .canvas { position: relative; flex: 1; min-height: 0; }
 .pin.react-flow__handle { width: 7.2px; height: 7.2px; /* = PIN in types.ts */ min-width: 0; min-height: 0; background: #f5b700; border: 1px solid #333; }
@@ -46,7 +45,9 @@
 .ctx button.has-sub { justify-content: space-between; gap: 12px; width: 100%; }
 .ctx .lbl { display: flex; align-items: center; gap: 8px; }
 .ctx-item:hover > button.has-sub { background: #eef2ff; }
-/* project name over the top-left of the canvas */
-.projname { position: absolute; top: 10px; left: 12px; z-index: 6; padding: 3px 10px; border-radius: 8px; background: #ffffffd9; box-shadow: 0 1px 4px #0f172a22; user-select: none; }
+/* one panel over the top-left of the canvas: the project name, then the wire / export buttons, all 28px high */
+.projbar { position: absolute; top: 10px; left: 12px; z-index: 6; display: flex; align-items: center; gap: 4px; padding: 3px 6px; border-radius: 8px; background: #ffffffd9; box-shadow: 0 1px 4px #0f172a22; }
+.projsep { width: 1px; height: 18px; margin: 0 4px; background: #e2e8f0; }
+.projname { height: 28px; display: flex; align-items: center; padding: 0 6px; user-select: none; }
 /* react-flow forces fill:currentColor on its control icons, which would fill our stroke-based icons */
 .react-flow__controls .lucide-ctl svg { fill: none; stroke: currentColor; max-width: 14px; max-height: 14px; }

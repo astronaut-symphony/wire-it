@@ -1,3 +1,5 @@
-.manage { max-width: 720px; margin: 0 auto; padding: 24px 16px; display: flex; flex-direction: column; gap: 24px; }
-.mrow { padding: 6px 8px; border: 1px solid #ddd; border-radius: 4px; margin-bottom: 6px; }
-.mrow img { width: 48px; height: 36px; object-fit: contain; }
+.manage { display: flex; flex-direction: column; gap: 24px; }
+/* fixed-width tracks: every card is the same size, however many fit in a row */
+.mgrid { display: grid; grid-template-columns: repeat(auto-fill, 120px); gap: 12px; }
+.mthumb { aspect-ratio: 1; padding: 10px; box-sizing: border-box; background: #f1f5f9; border-bottom: 1px solid #e2e8f0; }
+.mthumb img { display: block; width: 100%; height: 100%; object-fit: contain; }

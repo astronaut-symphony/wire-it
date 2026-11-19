@@ -16,7 +16,7 @@ import {
   type Viewport,
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
-import { Lock, LockOpen, Maximize, Merge, Move, Pencil, RotateCcw, RotateCw, Tag, Trash2 } from 'lucide-react';
+import { House, Info, Lock, LockOpen, Maximize, Merge, Move, Pencil, RotateCcw, RotateCw, Tag, Trash2 } from 'lucide-react';
 import { Home } from '@/features/home/Home';
 import { serialize } from '@/features/projects/model';
 import { useWorkspaceStore } from '@/features/projects/useWorkspaceStore';
@@ -33,13 +33,16 @@ import { ContextMenu } from '@/features/workspace/menu/ContextMenu';
 import { MenuCtx, type MenuState } from '@/features/workspace/menu/menu';
 import { ComponentNode } from '@/features/workspace/nodes/ComponentNode';
 import { JunctionNode } from '@/features/workspace/nodes/JunctionNode';
+import { ComponentProperties } from '@/features/workspace/ComponentProperties';
 import { ProjectTitle } from '@/features/workspace/ProjectTitle';
 import { Sidebar } from '@/features/workspace/Sidebar';
-import { Button, Text } from '@mantine/core';
+import { ActionIcon, Button, Text } from '@mantine/core';
 import { AppModal } from '@/shared/components/AppModal';
+import { ComponentManager } from '@/features/component-manager/ComponentManager';
 import { PromptModal, type Ask } from '@/features/workspace/PromptModal';
 import { Toolbar, WIRE_COLORS } from '@/features/workspace/Toolbar';
 import { compSize, rotPt, snapByPin } from '@/shared/lib/geometry';
+import type { Component } from '@/shared/types';
 
 const GRID = 5; // components snap to this grid by their pin 1
 const nodeTypes = { comp: ComponentNode, junction: JunctionNode };
@@ -58,10 +61,11 @@ function Shell() {
   const [wireColor, setWireColor] = useState(WIRE_COLORS[0]);
   const [orthoDefault, setOrthoDefault] = useState(true);
   const [locked, setLocked] = useState(false); // canvas lock: no moving, connecting or selecting
+  const [props, setProps] = useState<Component | null>(null); // component shown in the Properties dialog
   const [ask, setAsk] = useState<Ask | null>(null); // the one-line text dialog (rename, value)
   const views = useRef(new Map<string, Viewport>()); // pan / zoom per project, kept while the page stays open
 
-  const { customs, activeId, active, ready, route, go, synced, newProject, deleteProject, renameProject, importProject, review, acceptReview, notice, setNotice } =
+  const { customs, setCustoms, activeId, active, ready, route, go, synced, newProject, deleteProject, renameProject, importProject, review, acceptReview, notice, setNotice } =
     useWorkspaceStore(nodes, edges, setNodes, setEdges);
   const fileBase = (active?.name || 'tinker-part').replace(/[\\/:*?"<>|]/g, '_'); // export files are named after the project
 
@@ -262,6 +266,7 @@ function Shell() {
           onClick: () => setNodes((ns) => ns.map((x) => (x.id === n.id ? { ...x, data: { ...x.data, movingLabel: true } } : x))),
         },
         { icon: <Trash2 size={14} />, label: 'Delete component', danger: true, onClick: remove },
+        { icon: <Info size={14} />, label: 'Properties', disabled: !comps.has((n.data as { componentId?: string }).componentId ?? ''), onClick: () => setProps(comps.get((n.data as { componentId?: string }).componentId ?? '') ?? null) },
       ],
     });
   };
@@ -292,30 +297,19 @@ function Shell() {
                 onImport={(f) => void importProject(f)}
               />
             )
+          ) : route.kind === 'components' ? (
+            ready && (
+              <ComponentManager
+                customs={customs}
+                used={new Set(synced().flatMap((p) => p.nodes).map((n) => (n.data as { componentId?: string }).componentId))}
+                onChange={setCustoms}
+                onBack={() => (history.length > 1 ? history.back() : go({ kind: 'home' }))}
+              />
+            )
           ) : (
             inWorkspace && (
               <div className="workspace">
-                <Toolbar
-                  onHome={() => go({ kind: 'home' })}
-                  color={String(selected[0]?.style?.stroke ?? wireColor)}
-                  onColor={(c) => {
-                    setWireColor(c);
-                    patchSelected({}, { stroke: c });
-                  }}
-                  ortho={ortho}
-                  onOrtho={(on) => {
-                    setOrthoDefault(on);
-                    patchData({ ortho: on });
-                  }}
-                  onExportProject={() =>
-                    download(`${fileBase}.json`, JSON.stringify(serialize(customs, nodes, edges, active?.name, active?.versions)), 'application/json')
-                  }
-                  onExportPng={() => exportPng(diagramBounds(nodes, edges), fileBase)}
-                  onExportCsv={() => download(`${fileBase}.csv`, toCsv(wireRows(nodes, edges, comps)), 'text/csv')}
-                  canExportPng={nodes.length > 0}
-                  canExportCsv={edges.length > 0}
-                />
-                <Sidebar customs={customs} />
+                <Sidebar customs={customs} onHome={() => go({ kind: 'home' })} onManage={() => go({ kind: 'components' })} />
                 <main>
                   <div className="canvas" onDragOver={(e) => e.preventDefault()} onDrop={onDrop}>
                     <ReactFlow
@@ -363,7 +357,32 @@ function Shell() {
                         </ControlButton>
                       </Controls>
                     </ReactFlow>
-                    <ProjectTitle key={activeId} name={active?.name ?? ''} onRename={(n) => renameProject(activeId, n)} />
+                    <div className="projbar">
+                      <ActionIcon size={28} variant="subtle" color="gray" title="Home" aria-label="Home" onClick={() => go({ kind: 'home' })}>
+                        <House size={16} />
+                      </ActionIcon>
+                      <ProjectTitle key={activeId} name={active?.name ?? ''} onRename={(n) => renameProject(activeId, n)} />
+                      <span className="projsep" />
+                      <Toolbar
+                        color={String(selected[0]?.style?.stroke ?? wireColor)}
+                        onColor={(c) => {
+                          setWireColor(c);
+                          patchSelected({}, { stroke: c });
+                        }}
+                        ortho={ortho}
+                        onOrtho={(on) => {
+                          setOrthoDefault(on);
+                          patchData({ ortho: on });
+                        }}
+                        onExportProject={() =>
+                          download(`${fileBase}.json`, JSON.stringify(serialize(customs, nodes, edges, active?.name, active?.versions)), 'application/json')
+                        }
+                        onExportPng={() => exportPng(diagramBounds(nodes, edges), fileBase)}
+                        onExportCsv={() => download(`${fileBase}.csv`, toCsv(wireRows(nodes, edges, comps)), 'text/csv')}
+                        canExportPng={nodes.length > 0}
+                        canExportCsv={edges.length > 0}
+                      />
+                    </div>
                   </div>
                 </main>
                 {menu && <ContextMenu menu={menu} onClose={closeMenu} />}
@@ -371,6 +390,7 @@ function Shell() {
             )
           )}
           <PromptModal ask={ask} onClose={() => setAsk(null)} />
+          <ComponentProperties comp={props} onClose={() => setProps(null)} />
           <AppModal
             opened={review.length > 0}
             onClose={() => go({ kind: 'home' })}

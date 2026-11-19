@@ -1,62 +1,58 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
-import { ActionIcon, Badge, Button, Group, Text, Title } from '@mantine/core';
-import { Download, Pencil, Plus, Trash2, Upload } from 'lucide-react';
-import { update } from 'idb-keyval';
-import { NewComponentModal } from '@/features/workspace/NewComponentModal';
-import { CHANNEL } from '@/shared/lib/inbox';
+import { useRef, useState } from 'react';
+import { ActionIcon, Badge, Button, Card, Container, Group, Menu, Stack, Text, Textarea, TextInput, Title } from '@mantine/core';
+import { ArrowLeft, Download, Ellipsis, Pencil, Plus, Trash2, Upload } from 'lucide-react';
+import { AppModal } from '@/shared/components/AppModal';
 import { download } from '@/features/workspace/lib/export';
 import { mergeImported, parseComponents, serializeComponents } from '@/features/projects/model';
-import { KEY, readWorkspace } from '@/features/projects/useWorkspaceStore';
 import { routePath } from '@/features/projects/route';
+import { NewComponentModal } from '@/features/workspace/NewComponentModal';
 import { svgUrl } from '@/shared/lib/importImage';
 import type { Component } from '@/shared/types';
+import '@/features/home/home.css';
 import './component-manager.css';
 
-/**
- * Runs in its own tab (?manage=1): lists the user's own and imported components, and exports, deletes or imports them.
- * Changes are saved straight into the workspace and sent to the canvas tab, which swaps in the new library.
- * shortcut: a component finished in the editor within the last half second can be lost if it is not saved yet; fine for now.
- */
-export function ComponentManager() {
-  const [customs, setCustoms] = useState<Component[]>([]);
-  const [used, setUsed] = useState(new Set<string | undefined>());
-  const [msg, setMsg] = useState('');
+type Props = {
+  customs: Component[];
+  /** ids of components placed in any project; those cannot be deleted */
+  used: Set<string | undefined>;
+  onChange: (next: Component[]) => void;
+  onBack: () => void;
+};
+
+/** Page listing the user's own and imported components: create, edit, export, delete, import. */
+export function ComponentManager({ customs, used, onChange, onBack }: Props) {
   const [creating, setCreating] = useState(false);
+  const [msg, setMsg] = useState('');
+  const [exporting, setExporting] = useState<Component | null>(null);
+  const [author, setAuthor] = useState('');
+  const [desc, setDesc] = useState('');
   const fileRef = useRef<HTMLInputElement>(null);
-
-  const load = useCallback(async () => {
-    const ws = await readWorkspace();
-    if (!ws) return;
-    setCustoms(ws.components);
-    // in use = placed in any project; those cannot be deleted
-    setUsed(new Set(ws.projects.flatMap((p) => p.nodes).map((n) => (n.data as { componentId?: string }).componentId)));
-  }, []);
-
-  useEffect(() => {
-    void load();
-    window.addEventListener('focus', load); // the canvas tab may have changed things meanwhile
-    return () => window.removeEventListener('focus', load);
-  }, [load]);
-
-  async function commit(next: Component[]) {
-    await update<{ components: Component[] } | undefined>(KEY, (ws) => ws && { ...ws, components: next });
-    const ch = new BroadcastChannel(CHANNEL);
-    ch.postMessage({ components: next });
-    ch.close();
-    setCustoms(next);
-  }
 
   async function importFile(f?: File) {
     if (!f) return;
     try {
       if (f.size > 5_000_000) throw new Error('the file is too large');
       const { next, added, skipped } = mergeImported(customs, parseComponents(JSON.parse(await f.text())));
-      await commit(next);
+      onChange(next);
       setMsg(`${added} imported${skipped ? `, ${skipped} skipped (already in the library)` : ''}.`);
     } catch (e) {
       setMsg(`Could not import: ${(e as Error).message}`);
     }
   }
+
+  /** Export asks who made it and what it is (both optional); they are kept on the component and travel in the file. */
+  const startExport = (c: Component) => {
+    setExporting(c);
+    setAuthor(c.author ?? customs.find((x) => x.author)?.author ?? '');
+    setDesc(c.description ?? '');
+  };
+  const doExport = () => {
+    if (!exporting) return;
+    const c = { ...exporting, author: author.trim() || undefined, description: desc.trim() || undefined };
+    onChange(customs.map((x) => (x.id === c.id ? c : x)));
+    download(`${c.name.trim() || 'component'}.tinker.json`, JSON.stringify(serializeComponents([c])), 'application/json');
+    setExporting(null);
+  };
 
   const section = (title: string, list: Component[], empty: string) => (
     <section>
@@ -64,25 +60,40 @@ export function ComponentManager() {
         {title} <Text span c="dimmed" size="sm">{list.length}</Text>
       </Title>
       {list.length ? (
-        list.map((c) => (
-          <Group key={c.id} className="mrow" wrap="nowrap">
-            <img src={svgUrl(c.svg)} alt="" />
-            <Text style={{ flex: 1 }} truncate>{c.name}</Text>
-            <Text size="xs" c="dimmed">{c.pins.length} pins · {c.mmW} mm</Text>
-            {used.has(c.id) && <Badge variant="light" color="gray">In use</Badge>}
-            {!c.imported && (
-              <ActionIcon variant="subtle" title="Edit" aria-label={`Edit ${c.name}`} onClick={() => window.open(routePath({ kind: 'component', id: c.id }), '_blank')}>
-                <Pencil size={16} />
-              </ActionIcon>
-            )}
-            <ActionIcon variant="subtle" title="Export to a file" aria-label={`Export ${c.name}`} onClick={() => download(`${c.name.trim() || 'component'}.tinker.json`, JSON.stringify(serializeComponents([c])), 'application/json')}>
-              <Download size={16} />
-            </ActionIcon>
-            <ActionIcon variant="subtle" color="red" disabled={used.has(c.id)} title={used.has(c.id) ? 'In use in a project' : 'Delete'} aria-label={`Delete ${c.name}`} onClick={() => void commit(customs.filter((x) => x.id !== c.id))}>
-              <Trash2 size={16} />
-            </ActionIcon>
-          </Group>
-        ))
+        <div className="mgrid">
+          {list.map((c) => (
+            <Card key={c.id} withBorder radius="md" padding={6}>
+              <Card.Section className="mthumb">
+                <img src={svgUrl(c.svg)} alt="" />
+              </Card.Section>
+              <Text fw={600} size="xs" mt={6} truncate title={c.name}>{c.name}</Text>
+              <Text size="xs" c="dimmed" truncate title={c.description}>{c.pins.length} pins · {c.mmW} mm{c.imported && c.author ? ` · ${c.author}` : ''}</Text>
+              <Group justify="space-between" wrap="nowrap" mt={4} gap={4} h={22}>
+                {used.has(c.id) ? <Badge variant="light" color="gray" size="xs">In use</Badge> : <span />}
+                <Menu position="bottom-end" withinPortal>
+                  <Menu.Target>
+                    <ActionIcon variant="subtle" color="gray" size="sm" aria-label={`Actions for ${c.name}`}>
+                      <Ellipsis size={16} />
+                    </ActionIcon>
+                  </Menu.Target>
+                  <Menu.Dropdown>
+                    {!c.imported && (
+                      <Menu.Item leftSection={<Pencil size={14} />} onClick={() => window.open(routePath({ kind: 'component', id: c.id }), '_blank')}>
+                        Edit
+                      </Menu.Item>
+                    )}
+                    <Menu.Item leftSection={<Upload size={14} />} onClick={() => startExport(c)}>
+                      Export
+                    </Menu.Item>
+                    <Menu.Item color="red" leftSection={<Trash2 size={14} />} disabled={used.has(c.id)} onClick={() => onChange(customs.filter((x) => x.id !== c.id))}>
+                      {used.has(c.id) ? 'Delete (in use)' : 'Delete'}
+                    </Menu.Item>
+                  </Menu.Dropdown>
+                </Menu>
+              </Group>
+            </Card>
+          ))}
+        </div>
       ) : (
         <Text size="sm" c="dimmed">{empty}</Text>
       )}
@@ -90,23 +101,51 @@ export function ComponentManager() {
   );
 
   return (
-    <div className="manage">
-      <Group justify="space-between" mb="md">
-        <Title order={3}>Manage components</Title>
-        <Group gap="xs">
-          <Button variant="default" leftSection={<Upload size={14} />} onClick={() => fileRef.current?.click()}>
-            Import
-          </Button>
-          <Button leftSection={<Plus size={14} />} onClick={() => setCreating(true)}>
-            Create
-          </Button>
+    <div className="home">
+      <Container size="lg" py="xl">
+        <Group justify="space-between" align="flex-end" mb="lg">
+          <Group gap="sm">
+            <ActionIcon variant="default" size="lg" title="Back" aria-label="Back" onClick={onBack}>
+              <ArrowLeft size={16} />
+            </ActionIcon>
+            <div>
+              <Title order={2}>Manage components</Title>
+            </div>
+          </Group>
+          <Group gap="xs">
+            <Button variant="default" leftSection={<Download size={16} />} onClick={() => fileRef.current?.click()}>
+              Import
+            </Button>
+            <Button leftSection={<Plus size={16} />} onClick={() => setCreating(true)}>
+              Create
+            </Button>
+          </Group>
         </Group>
+        {msg && <Text size="sm" mb="md">{msg}</Text>}
+        <div className="manage">
+          {section('My components', customs.filter((c) => !c.imported), 'None yet. Use Create to make one.')}
+          {section('Imported', customs.filter((c) => c.imported), 'Nothing imported. Use Import to add a components file.')}
+        </div>
         <input ref={fileRef} type="file" accept=".json,application/json" hidden onChange={(e) => (void importFile(e.target.files?.[0]), (e.target.value = ''))} />
-      </Group>
-      {msg && <Text size="sm" mb="md">{msg}</Text>}
-      {section('My components', customs.filter((c) => !c.imported), 'None yet. Use Create to make one.')}
-      {section('Imported', customs.filter((c) => c.imported), 'Nothing imported. Use Import to add a components file.')}
+      </Container>
       <NewComponentModal opened={creating} onClose={() => setCreating(false)} />
+      <AppModal
+        opened={!!exporting}
+        onClose={() => setExporting(null)}
+        title={`Export ${exporting?.name ?? ''}`}
+        size="sm"
+        footer={
+          <>
+            <Button variant="default" onClick={() => setExporting(null)}>Cancel</Button>
+            <Button onClick={doExport}>Export</Button>
+          </>
+        }
+      >
+        <Stack gap="sm">
+          <TextInput data-autofocus label="Author" placeholder="Optional" value={author} onChange={(e) => setAuthor(e.currentTarget.value)} />
+          <Textarea label="Description" placeholder="Optional" autosize minRows={2} maxRows={5} value={desc} onChange={(e) => setDesc(e.currentTarget.value)} />
+        </Stack>
+      </AppModal>
     </div>
   );
 }

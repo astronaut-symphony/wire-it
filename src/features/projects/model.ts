@@ -82,6 +82,8 @@ export const serializeComponents = (components: Component[]) => ({
 
 const num = (v: unknown) => typeof v === 'number' && Number.isFinite(v);
 const DIRS = ['up', 'down', 'left', 'right', 'free'];
+/** An optional free-text field from a file: kept only when it is a non-empty string, cut to a sane length. */
+const text = (k: string, v: unknown, max: number) => (typeof v === 'string' && v.trim() ? { [k]: v.trim().slice(0, max) } : {});
 
 /** A components file from someone else is untrusted: every field is checked and only known fields are kept. */
 export function parseComponents(raw: unknown): Component[] {
@@ -95,7 +97,7 @@ export function parseComponents(raw: unknown): Component[] {
       if (typeof p?.id !== 'string' || typeof p.name !== 'string' || !num(p.x) || !num(p.y)) throw new Error(`"${x.name}" has a bad pin`);
       return { id: p.id, name: p.name, label: typeof p.label === 'string' ? p.label : undefined, x: p.x, y: p.y, dir: DIRS.includes(p.dir as string) ? p.dir : undefined };
     });
-    return { id: x.id, name: x.name, ...(typeof x.label === 'string' && x.label ? { label: x.label } : {}), ...(Number.isInteger(x.version) && x.version! > 0 ? { version: x.version } : {}), svg: sanitizeSvg(x.svg).svg, w: x.w, h: x.h, mmW: x.mmW, pins, imported: true };
+    return { id: x.id, name: x.name, ...(typeof x.label === 'string' && x.label ? { label: x.label } : {}), ...text('author', x.author, 80), ...text('description', x.description, 500), ...(Number.isInteger(x.version) && x.version! > 0 ? { version: x.version } : {}), svg: sanitizeSvg(x.svg).svg, w: x.w, h: x.h, mmW: x.mmW, pins, imported: true };
   });
 }
 

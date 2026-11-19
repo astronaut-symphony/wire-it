@@ -30,17 +30,11 @@ export function Home({ projects, onOpen, onNew, onRename, onDelete, onImport }: 
 
   return (
     <div className="home">
-      <header className="homebar">
-        <Brand onClick={() => {}} />
-      </header>
       <Container size="lg" py="xl">
+        <Brand big onClick={() => {}} />
+        <div style={{ height: 24 }} />
         <Group justify="space-between" align="flex-end" mb="lg">
-          <div>
-            <Title order={2}>Your projects</Title>
-            <Text c="dimmed" size="sm">
-              Pick up where you left off, or start a new wiring diagram.
-            </Text>
-          </div>
+          <Title order={2}>Your projects</Title>
           <Group gap="xs">
             <FileButton onChange={(f) => f && onImport(f)} accept="application/json,.json">
               {(props) => (
@@ -69,13 +63,13 @@ export function Home({ projects, onOpen, onNew, onRename, onDelete, onImport }: 
             </Stack>
           </Card>
         ) : (
-          <SimpleGrid cols={{ base: 1, sm: 2, md: 3 }} spacing="md">
+          <SimpleGrid cols={{ base: 2, sm: 3, md: 4 }} spacing="sm">
             {projects.map((p) => (
               <Card
                 key={p.id}
                 withBorder
                 radius="md"
-                padding="md"
+                padding="sm"
                 className="projcard"
                 role="button"
                 tabIndex={0}

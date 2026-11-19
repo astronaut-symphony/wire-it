@@ -102,6 +102,9 @@ describe('workspace', () => {
     expect(back[0].pins[0]).toMatchObject({ id: 'p1', dir: 'up' });
     const file = (x: object) => ({ app: 'tinker-part', version: 1, components: [x] });
     expect(parseComponents(file({ ...c, builtin: true }))[0].builtin).toBeUndefined(); // unknown fields are dropped
+    const by = parseComponents(file({ ...c, author: '  Ana ', description: 'x'.repeat(900) }))[0];
+    expect([by.author, by.description?.length]).toEqual(['Ana', 500]); // kept, trimmed and capped
+    expect(parseComponents(file({ ...c, author: 5, description: '  ' }))[0]).not.toHaveProperty('author');
     const m = mergeImported([back[0]], [...back, { ...back[0], id: 'y' }, { ...back[0], id: 'builtin-uno' }]);
     expect([m.added, m.skipped, m.next.length]).toEqual([1, 2, 2]); // same id and built-in ids are skipped
     expect(() => parseComponents({ version: 1, components: [] })).toThrow();

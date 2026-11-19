@@ -8,10 +8,10 @@ import { changedComponents, dropDeadWires, fromLegacy, nextName, parseProject, p
 import { parseRoute, routePath, type Route } from './route';
 
 const LEGACY_KEY = 'wiring-project'; // single-project autosave from before there were several projects
-export const KEY = 'tinker-part-workspace';
+const KEY = 'tinker-part-workspace';
 const OLD_KEY = 'wiring-workspace'; // same format, from before the rename to Tinker part
 
-/** The saved workspace as the other tabs (component manager and editor) see it. */
+/** The saved workspace as the other tab (the component editor) sees it. */
 export async function readWorkspace(): Promise<Workspace | undefined> {
   const raw = (await get(KEY)) ?? (await get(OLD_KEY));
   return raw ? parseWorkspace(raw) : undefined;
@@ -26,9 +26,9 @@ export function useWorkspaceStore(nodes: Node[], edges: Edge[], setNodes: (n: No
   const [customs, setCustoms] = useState<Component[]>([]);
   const [projects, setProjects] = useState<Proj[]>([]);
   const [activeId, setActiveId] = useState<string>(''); // the project whose nodes / edges are on the canvas ('' = none)
-  const [notice, setNotice] = useState(''); // message for the user, shown by the app (e.g. a file that would not open)
   const [ready, setReady] = useState(false); // saved workspace loaded
   const [route, setRoute] = useState<Route>(() => parseRoute(location.pathname));
+  const [notice, setNotice] = useState(''); // message for the user, shown by the app (e.g. a file that would not open)
   const loaded = useRef(false);
 
   const absorb = useCallback(async () => {
@@ -79,12 +79,11 @@ export function useWorkspaceStore(nodes: Node[], edges: Edge[], setNodes: (n: No
     return () => window.removeEventListener('popstate', onPop);
   }, []);
 
-  // components finished in the component-editor tab arrive here (also on focus, in case the ping was missed);
-  // the manage tab sends the whole new library, which has already been saved
+  // components finished in the component-editor tab arrive here (also on focus, in case the ping was missed)
   useEffect(() => {
     const ch = new BroadcastChannel(CHANNEL);
     const pull = () => void absorb();
-    ch.onmessage = (e) => (Array.isArray(e.data?.components) ? setCustoms(e.data.components) : pull());
+    ch.onmessage = pull;
     window.addEventListener('focus', pull);
     return () => {
       ch.close();
@@ -193,6 +192,7 @@ export function useWorkspaceStore(nodes: Node[], edges: Edge[], setNodes: (n: No
 
   return {
     customs,
+    setCustoms,
     projects,
     activeId,
     active: projects.find((p) => p.id === activeId),

@@ -13,11 +13,13 @@ describe('route', () => {
     expect(parseRoute(routePath({ kind: 'project', id }))).toEqual({ kind: 'project', id });
     expect(routePath({ kind: 'home' })).toBe('/');
   });
-  it('component pages are not canvas routes', () => {
-    expect(parsePage('/components')).toEqual({ kind: 'components' });
+  it('/components is the manager, a canvas route', () => {
+    expect(parseRoute('/components')).toEqual({ kind: 'components' });
+    expect(routePath({ kind: 'components' })).toBe('/components');
+  });
+  it('the component editor is not a canvas route', () => {
     expect(parsePage('/component/x1')).toEqual({ kind: 'component', id: 'x1' });
     expect(parsePage(routePath({ kind: 'component', id: 'new' }))).toEqual({ kind: 'component', id: 'new' });
-    expect(parseRoute('/components')).toEqual({ kind: 'home' });
     expect(parseRoute('/component/x1')).toEqual({ kind: 'home' });
   });
 });

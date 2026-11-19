@@ -12,6 +12,8 @@ export type Component = {
   id: string;
   name: string;
   label?: string; // optional short name shown on the canvas instead of `name`
+  author?: string; // who made it, filled in when exported; shown in Properties of an imported one
+  description?: string;
   version?: number; // goes up by one each time the component is edited and saved; none = 1
   svg: string;
   w: number; // svg viewBox size, only the aspect matters

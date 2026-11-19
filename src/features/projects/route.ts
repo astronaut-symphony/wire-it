@@ -1,7 +1,7 @@
-/** Where the user is on the canvas page: the home page (project list) or inside one project. Lives in the URL path so refresh and back work. */
-export type Route = { kind: 'home' } | { kind: 'project'; id: string };
-/** Every page the app has: also the component manager and the component editor (id 'new' = a new component). */
-export type Page = Route | { kind: 'components' } | { kind: 'component'; id: string };
+/** Where the user is on the canvas page: the project list, the component manager, or inside one project. Lives in the URL path so refresh and back work. */
+export type Route = { kind: 'home' } | { kind: 'components' } | { kind: 'project'; id: string };
+/** Every page the app has: also the component editor (its own tab; id 'new' = a new component). */
+export type Page = Route | { kind: 'component'; id: string };
 
 export function parsePage(path: string): Page {
   const m = /^\/(project|component)\/([^/]+)\/?$/.exec(path);
@@ -11,16 +11,9 @@ export function parsePage(path: string): Page {
 
 export function parseRoute(path: string): Route {
   const p = parsePage(path);
-  return p.kind === 'home' || p.kind === 'project' ? p : { kind: 'home' };
+  return p.kind === 'component' ? { kind: 'home' } : p;
 }
 
 export function routePath(p: Page): string {
-  switch (p.kind) {
-    case 'home':
-      return '/';
-    case 'components':
-      return '/components';
-    default:
-      return `/${p.kind}/${encodeURIComponent(p.id)}`;
-  }
+  return p.kind === 'home' ? '/' : p.kind === 'components' ? '/components' : `/${p.kind}/${encodeURIComponent(p.id)}`;
 }

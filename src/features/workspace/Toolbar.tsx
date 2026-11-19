@@ -1,6 +1,5 @@
-import { ActionIcon, Button, ColorSwatch, Menu } from '@mantine/core';
-import { Angle, ChevronDown, Download, FileJson, FileSpreadsheet, Image } from 'lucide-react';
-import { Brand } from '@/shared/components/Brand';
+import { ActionIcon, ColorSwatch, Menu } from '@mantine/core';
+import { Angle, Download, FileJson, FileSpreadsheet, Image } from 'lucide-react';
 import '@/features/workspace/workspace.css';
 
 export const WIRE_COLORS = ['#e03131', '#f08c00', '#f2c200', '#2f9e44', '#0c8599', '#1c7ed6', '#7048e8', '#8d5524', '#868e96', '#111111'];
@@ -11,7 +10,6 @@ export const WIRE_COLOR_NAMES: Record<string, string> = {
 };
 
 type Props = {
-  onHome: () => void;
   /** colour of the selected wire, else the colour new wires get */
   color: string;
   onColor: (c: string) => void;
@@ -24,17 +22,17 @@ type Props = {
   canExportCsv: boolean;
 };
 
-/** Top bar over the whole page: logo on the left, wire look and export on the right. */
+const SIZE = 28; // same height as the project name next to them
+
+/** Wire look and export, as icon-only buttons in a row (placed beside the project name). */
 export function Toolbar(p: Props) {
   return (
-    <header>
-      <Brand onClick={p.onHome} />
-      <span className="spacer" />
+    <>
       <Menu position="bottom-start" clickOutsideEvents={['pointerdown']}>
         <Menu.Target>
-          <Button size="compact-sm" h={28} variant="default" leftSection={<ColorSwatch color={p.color} size={14} />} rightSection={<ChevronDown size={14} />}>
-            Wire color
-          </Button>
+          <ActionIcon size={SIZE} variant="subtle" color="gray" title="Wire color" aria-label="Wire color">
+            <ColorSwatch color={p.color} size={14} />
+          </ActionIcon>
         </Menu.Target>
         <Menu.Dropdown>
           {WIRE_COLORS.map((c) => (
@@ -45,7 +43,9 @@ export function Toolbar(p: Props) {
         </Menu.Dropdown>
       </Menu>
       <ActionIcon
-        variant={p.ortho ? 'light' : 'default'}
+        size={SIZE}
+        variant="subtle"
+        c={p.ortho ? 'blue' : 'gray.5'} // on = blue icon, off = light gray like a disabled one; no filled background
         aria-label="Right angles"
         aria-pressed={p.ortho}
         title="Right angles"
@@ -53,11 +53,11 @@ export function Toolbar(p: Props) {
       >
         <Angle size={16} />
       </ActionIcon>
-      <Menu position="bottom-end" clickOutsideEvents={['pointerdown']}>
+      <Menu position="bottom-start" clickOutsideEvents={['pointerdown']}>
         <Menu.Target>
-          <Button size="compact-sm" h={28} variant="default" leftSection={<Download size={14} />} rightSection={<ChevronDown size={14} />}>
-            Export
-          </Button>
+          <ActionIcon size={SIZE} variant="subtle" color="gray" title="Export" aria-label="Export">
+            <Download size={16} />
+          </ActionIcon>
         </Menu.Target>
         <Menu.Dropdown>
           <Menu.Item leftSection={<Image size={14} />} disabled={!p.canExportPng} onClick={p.onExportPng}>
@@ -71,6 +71,6 @@ export function Toolbar(p: Props) {
           </Menu.Item>
         </Menu.Dropdown>
       </Menu>
-    </header>
+    </>
   );
 }
