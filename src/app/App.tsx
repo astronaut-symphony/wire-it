@@ -18,6 +18,7 @@ import {
 import '@xyflow/react/dist/style.css';
 import { House, Info, Lock, LockOpen, Maximize, Merge, Move, Pencil, RotateCcw, RotateCw, Tag, Trash2 } from 'lucide-react';
 import { Home } from '@/features/home/Home';
+import { ProjectPreview } from '@/features/home/ProjectPreview';
 import { serialize } from '@/features/projects/model';
 import { useWorkspaceStore } from '@/features/projects/useWorkspaceStore';
 import { Actions } from '@/features/workspace/context/actions';
@@ -294,6 +295,7 @@ function Shell() {
                   name: p.name,
                   components: p.nodes.filter((n) => n.type === 'comp').length,
                   wires: p.edges.length,
+                  preview: <ProjectPreview nodes={p.nodes} edges={p.edges} comps={comps} />,
                 }))}
                 onOpen={(id) => go({ kind: 'project', id })}
                 onNew={() => newProject()}

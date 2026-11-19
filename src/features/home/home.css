@@ -3,3 +3,4 @@
 .home { min-height: 100%; background: #f8fafc; }
 .projcard { cursor: pointer; transition: box-shadow 0.15s, border-color 0.15s; }
 .projcard:hover { box-shadow: 0 4px 14px #0f172a1a; border-color: #94a3b8; }
+.projthumb { height: 120px; padding: 10px; box-sizing: border-box; background: #f1f5f9; border-bottom: 1px solid #e2e8f0; }

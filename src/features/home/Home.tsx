@@ -1,11 +1,11 @@
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import { ActionIcon, Button, Card, Container, FileButton, Group, Menu, SimpleGrid, Stack, Text, TextInput, Title } from '@mantine/core';
 import { Cpu, Ellipsis, FileInput, Pencil, Plus, Trash2 } from 'lucide-react';
 import { AppModal } from '@/shared/components/AppModal';
 import { Brand } from '@/shared/components/Brand';
 import './home.css';
 
-type ProjectInfo = { id: string; name: string; components: number; wires: number };
+type ProjectInfo = { id: string; name: string; components: number; wires: number; preview: ReactNode };
 
 type Props = {
   projects: ProjectInfo[];
@@ -77,7 +77,8 @@ export function Home({ projects, onOpen, onNew, onRename, onDelete, onImport }: 
                 onClick={() => onOpen(p.id)}
                 onKeyDown={(e: React.KeyboardEvent) => e.key === 'Enter' && onOpen(p.id)}
               >
-                <Group justify="space-between" wrap="nowrap" align="flex-start">
+                <Card.Section className="projthumb">{p.preview}</Card.Section>
+                <Group justify="space-between" wrap="nowrap" align="flex-start" mt="sm">
                   <div style={{ minWidth: 0 }}>
                     <Text fw={600} truncate>
                       {p.name}
