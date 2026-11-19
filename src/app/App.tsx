@@ -36,7 +36,7 @@ import { JunctionNode } from '@/features/workspace/nodes/JunctionNode';
 import { ComponentProperties } from '@/features/workspace/ComponentProperties';
 import { ProjectTitle } from '@/features/workspace/ProjectTitle';
 import { Sidebar } from '@/features/workspace/Sidebar';
-import { ActionIcon, Button, Text } from '@mantine/core';
+import { ActionIcon, Button, Center, Loader, Text } from '@mantine/core';
 import { AppModal } from '@/shared/components/AppModal';
 import { ComponentManager } from '@/features/component-manager/ComponentManager';
 import { PromptModal, type Ask } from '@/features/workspace/PromptModal';
@@ -281,6 +281,11 @@ function Shell() {
     <Comps.Provider value={comps}>
       <MenuCtx.Provider value={setMenu}>
         <Actions.Provider value={actions}>
+          {!ready && (
+            <Center h="100vh">
+              <Loader size="sm" />
+            </Center>
+          )}
           {route.kind === 'home' ? (
             ready && (
               <Home
