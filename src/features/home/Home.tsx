@@ -18,6 +18,9 @@ type Props = {
 
 /** Home page: the list of projects. */
 export function Home({ projects, onOpen, onNew, onRename, onDelete, onImport }: Props) {
+  // with nothing saved yet (a first visit) the first new project comes with a warning about where it is kept
+  const [warn, setWarn] = useState(false);
+  const startNew = () => (projects.length ? onNew() : setWarn(true));
   const [dialog, setDialog] = useState<{ kind: 'rename' | 'delete'; id: string } | null>(null);
   const [text, setText] = useState('');
   const target = projects.find((p) => p.id === dialog?.id);
@@ -43,7 +46,7 @@ export function Home({ projects, onOpen, onNew, onRename, onDelete, onImport }: 
                 </Button>
               )}
             </FileButton>
-            <Button leftSection={<Plus size={16} />} onClick={onNew}>
+            <Button leftSection={<Plus size={16} />} onClick={startNew}>
               New project
             </Button>
           </Group>
@@ -57,7 +60,7 @@ export function Home({ projects, onOpen, onNew, onRename, onDelete, onImport }: 
               <Text c="dimmed" size="sm">
                 Create your first project to start placing components and wiring them up.
               </Text>
-              <Button mt="xs" leftSection={<Plus size={16} />} onClick={onNew}>
+              <Button mt="xs" leftSection={<Plus size={16} />} onClick={startNew}>
                 New project
               </Button>
             </Stack>
@@ -115,6 +118,51 @@ export function Home({ projects, onOpen, onNew, onRename, onDelete, onImport }: 
         )}
         </div>
       </Container>
+
+      <AppModal
+        opened={warn}
+        onClose={() => setWarn(false)}
+        title="Before you start"
+        size="md"
+        footer={
+          <Button
+            onClick={() => {
+              setWarn(false);
+              onNew();
+            }}
+          >
+            I understand
+          </Button>
+        }
+      >
+        <Stack gap="sm">
+          <Text size="sm">
+            Your projects are saved only in this browser, on this device. Nothing is uploaded, and nobody, including us, can get it back for you.
+          </Text>
+          <Text size="sm">They are lost if you:</Text>
+          <ul style={{ margin: 0, paddingLeft: 20, fontSize: 14, display: 'flex', flexDirection: 'column', gap: 6 }}>
+            <li>
+              clear your browsing data:
+              <ul style={{ margin: '4px 0 6px', paddingLeft: 18 }}>
+                <li>
+                  <b>Chrome / Edge:</b> Settings, Privacy, Delete browsing data, then tick "Cookies and other site data"
+                </li>
+                <li>
+                  <b>Firefox:</b> Settings, Privacy &amp; Security, Cookies and Site Data, Clear Data
+                </li>
+                <li>
+                  <b>Safari:</b> Settings, Privacy, Manage Website Data
+                </li>
+              </ul>
+            </li>
+            <li>work in a private or incognito window (it forgets everything when closed).</li>
+            <li>switch to another browser or device, or reinstall or reset your browser.</li>
+          </ul>
+          <Text size="sm">
+            So keep a copy: use the export button (download icon) in a project to save it as a <b>JSON</b> file you can open again later, or as a <b>PNG</b> picture of the diagram.
+          </Text>
+        </Stack>
+      </AppModal>
 
       <AppModal
         opened={dialog?.kind === 'rename'}
