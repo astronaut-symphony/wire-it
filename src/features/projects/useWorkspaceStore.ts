@@ -4,7 +4,7 @@ import { get, set } from 'idb-keyval';
 import { CHANNEL, takeComponents } from '@/shared/lib/inbox';
 import { sanitizeSvg } from '@/shared/lib/importImage';
 import type { Component } from '@/shared/types';
-import { changedComponents, dropDeadWires, fromLegacy, nextName, parseProject, parseWorkspace, slim, usedVersions, type Change, type Proj, type Workspace } from './model';
+import { changedComponents, dropDeadWires, fromLegacy, nextName, parseProject, parseWorkspace, slim, uniqueName, usedVersions, type Change, type Proj, type Workspace } from './model';
 import { parseRoute, routePath, type Route } from './route';
 
 const LEGACY_KEY = 'wiring-project'; // single-project autosave from before there were several projects
@@ -184,7 +184,9 @@ export function useWorkspaceStore(nodes: Node[], edges: Edge[], setNodes: (n: No
     try {
       const p = parseProject(JSON.parse(await f.text()));
       setCustoms((cs) => [...cs, ...p.components.filter((c) => !c.id.startsWith('builtin-') && !cs.some((x) => x.id === c.id)).map((c) => ({ ...c, imported: true }))]);
-      newProject(p.name ?? f.name.replace(/\.[^.]+$/, ''), { nodes: p.nodes, edges: p.edges, versions: p.versions });
+      // named after the file (it may have been renamed since it was saved), and never the same as an existing project
+      const base = f.name.replace(/\.[^.]+$/, '').trim() || p.name || 'Imported';
+      newProject(uniqueName(synced().map((x) => x.name), base), { nodes: p.nodes, edges: p.edges, versions: p.versions });
     } catch (e) {
       setNotice(`Could not open the file: ${(e as Error).message}`);
     }

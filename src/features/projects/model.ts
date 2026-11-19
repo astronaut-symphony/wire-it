@@ -114,6 +114,14 @@ export function nextName(names: string[]): string {
   return `Untitled${n}`;
 }
 
+/** A name not taken yet: the name itself, else "name (2)", "name (3)" ... */
+export function uniqueName(names: string[], name: string): string {
+  let n = 2;
+  let out = name;
+  while (names.includes(out)) out = `${name} (${n++})`;
+  return out;
+}
+
 const fixEdges = (es: Edge[]): Edge[] => es.map((e) => ({ ...e, type: 'wire', data: { points: [], ...e.data } })); // older files used smoothstep
 
 export function parseProject(raw: unknown): Project {

@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { Edge, Node } from '@xyflow/react';
 import { degrees, normalizeJunctions } from '../workspace/lib/junction';
-import { changedComponents, dropDeadWires, fromLegacy, mergeImported, nextName, parseComponents, parseWorkspace, serialize, serializeComponents, slim, usedVersions } from './model';
+import { changedComponents, dropDeadWires, fromLegacy, mergeImported, nextName, parseComponents, parseWorkspace, serialize, serializeComponents, slim, uniqueName, usedVersions } from './model';
 
 vi.mock('@/shared/lib/importImage', () => ({ sanitizeSvg: (svg: string) => ({ svg }) })); // the real one needs a browser DOMParser
 
@@ -129,5 +129,10 @@ describe('workspace', () => {
     expect(ws.projects[1]).toMatchObject({ name: 'B', nodes: [], edges: [] });
     expect(ws.projects[0].edges[0].type).toBe('wire'); // old edge types are converted
     expect((ws.projects[0].edges[0].data as { points: unknown }).points).toEqual([]);
+  });
+
+  it('uniqueName keeps a free name and numbers a taken one', () => {
+    expect(uniqueName(['A'], 'B')).toBe('B');
+    expect(uniqueName(['A', 'A (2)'], 'A')).toBe('A (3)');
   });
 });
