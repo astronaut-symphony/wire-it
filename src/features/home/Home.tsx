@@ -2,7 +2,7 @@ import { useState, type ReactNode } from 'react';
 import { ActionIcon, Button, Card, Container, FileButton, Group, Menu, SimpleGrid, Stack, Text, TextInput, Title } from '@mantine/core';
 import { Cpu, Ellipsis, FileInput, Pencil, Plus, Trash2 } from 'lucide-react';
 import { AppModal } from '@/shared/components/AppModal';
-import { Brand } from '@/shared/components/Brand';
+import { RepoInfo } from './RepoInfo';
 import './home.css';
 
 type ProjectInfo = { id: string; name: string; components: number; wires: number; preview: ReactNode };
@@ -30,9 +30,9 @@ export function Home({ projects, onOpen, onNew, onRename, onDelete, onImport }: 
 
   return (
     <div className="home">
+      <RepoInfo />
       <Container size="lg" py="xl">
-        <Brand big onClick={() => {}} />
-        <div style={{ height: 24 }} />
+        <div>
         <Group justify="space-between" align="flex-end" mb="lg">
           <Title order={2}>Your projects</Title>
           <Group gap="xs">
@@ -113,6 +113,7 @@ export function Home({ projects, onOpen, onNew, onRename, onDelete, onImport }: 
             ))}
           </SimpleGrid>
         )}
+        </div>
       </Container>
 
       <AppModal
