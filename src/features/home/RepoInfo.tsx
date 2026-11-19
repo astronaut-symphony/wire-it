@@ -2,7 +2,7 @@ import { Anchor, Badge, Container, Divider, Group, Stack, Text } from '@mantine/
 import { ExternalLink, GitPullRequest, Lightbulb } from 'lucide-react';
 import { Brand } from '@/shared/components/Brand';
 
-const REPO = 'https://github.com/astronaut-symphony/tinker-part';
+export const REPO = 'https://github.com/astronaut-symphony/wire-it';
 const LINKS = [
   { href: REPO, icon: <ExternalLink size={14} />, text: 'View the source on GitHub' },
   { href: `${REPO}/issues`, icon: <Lightbulb size={14} />, text: 'Have an idea or found a bug? Let us know' },
@@ -16,7 +16,7 @@ export function RepoInfo() {
     <Container size="lg" pt="lg">
       <Group justify="space-between" align="flex-end" gap="xl">
         <Stack gap="md" maw={560}>
-          <Brand big onClick={() => {}} />
+          <Brand big onClick={() => {}} versionHref={`${REPO}/releases`} />
           <Text c="dimmed">
             Wiring diagram sketcher built around custom components: draw your own part, drop it on a canvas, and wire it up. Everything is stored in this browser.
           </Text>
@@ -28,7 +28,7 @@ export function RepoInfo() {
         </Stack>
         <Stack gap="xs" align="flex-end">
           {LINKS.map(({ href, icon, text }) => (
-            <Anchor key={href} href={href} target="_blank" rel="noopener noreferrer" size="sm">
+            <Anchor key={href} href={href} c="var(--accent-text)" target="_blank" rel="noopener noreferrer" size="sm">
               <Group gap={4} wrap="nowrap">
                 {icon} {text}
               </Group>

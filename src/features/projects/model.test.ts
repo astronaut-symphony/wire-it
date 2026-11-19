@@ -100,7 +100,7 @@ describe('workspace', () => {
     const back = parseComponents(serializeComponents([{ ...c, imported: false }]));
     expect(back[0]).toMatchObject({ id: 'x', name: 'LED', imported: true });
     expect(back[0].pins[0]).toMatchObject({ id: 'p1', dir: 'up' });
-    const file = (x: object) => ({ app: 'tinker-part', version: 1, components: [x] });
+    const file = (x: object) => ({ app: 'wire-it', version: 1, components: [x] });
     expect(parseComponents(file({ ...c, builtin: true }))[0].builtin).toBeUndefined(); // unknown fields are dropped
     const by = parseComponents(file({ ...c, author: '  Ana ', description: 'x'.repeat(900) }))[0];
     expect([by.author, by.description?.length]).toEqual(['Ana', 500]); // kept, trimmed and capped

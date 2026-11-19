@@ -34,7 +34,7 @@ export function Home({ projects, onOpen, onNew, onRename, onDelete, onImport }: 
       <Container size="lg" py="xl">
         <div>
         <Group justify="space-between" align="flex-end" mb="lg">
-          <Title order={2}>Your projects</Title>
+          <Title order={2} c="var(--accent-text)">Your projects</Title>
           <Group gap="xs">
             <FileButton onChange={(f) => f && onImport(f)} accept="application/json,.json">
               {(props) => (

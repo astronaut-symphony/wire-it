@@ -75,7 +75,7 @@ export const serialize = (components: Component[], nodes: Node[], edges: Edge[],
 
 /** The components file: one or more components to share. Versioned so older files stay readable. */
 export const serializeComponents = (components: Component[]) => ({
-  app: 'tinker-part',
+  app: 'wire-it',
   version: 1,
   components: components.map(portable),
 });
@@ -88,7 +88,7 @@ const text = (k: string, v: unknown, max: number) => (typeof v === 'string' && v
 /** A components file from someone else is untrusted: every field is checked and only known fields are kept. */
 export function parseComponents(raw: unknown): Component[] {
   const f = raw as { app?: string; version?: number; components?: unknown[] };
-  if (f?.app !== 'tinker-part' || f.version !== 1 || !Array.isArray(f.components)) throw new Error('not a Tinker part components file');
+  if (f?.app !== 'wire-it' || f.version !== 1 || !Array.isArray(f.components)) throw new Error('not a Wire it components file');
   return f.components.map((c) => {
     const x = c as Component;
     if (typeof x?.id !== 'string' || typeof x.name !== 'string' || typeof x.svg !== 'string') throw new Error('a component is incomplete');

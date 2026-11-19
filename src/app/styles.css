@@ -1,3 +1,4 @@
+:root { --accent: #f2a33a; --accent-soft: #fff4e6; --accent-text: #c2570c; } /* the brand's orange: selection frames, handles, links */
 * { box-sizing: border-box; }
 html, body, #root { height: 100%; margin: 0; font: 14px system-ui, sans-serif; }
 button, select, input { font: inherit; }

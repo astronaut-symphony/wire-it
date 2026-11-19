@@ -109,6 +109,8 @@ export function WireEdge({
   // every corner of the wire's own part; in ortho mode this includes generated ones
   const corners = mid.slice(1, -1).map((v) => v.p);
 
+  // the edit handles take the wire's own colour (see .bend in workspace.css)
+  const wireVar = { '--wire': String(style?.stroke ?? '#111') } as React.CSSProperties;
   const path = roundedPath(verts.map((v) => v.p), RADIUS);
 
   const P = tidy([s, ...corners, e]);
@@ -298,7 +300,7 @@ export function WireEdge({
       {selected &&
         !ortho &&
         corners.map((p, i) => (
-          <g key={i} className="bendwrap nodrag nopan">
+          <g key={i} className="bendwrap nodrag nopan" style={wireVar}>
             <circle cx={p.x} cy={p.y} r={5} className="bend" />
             <circle
               cx={p.x}
@@ -319,7 +321,7 @@ export function WireEdge({
       {selected &&
         segs.map(({ k, o, cx, cy }) => {
           return (
-            <g key={k} className="bendwrap nodrag nopan">
+            <g key={k} className="bendwrap nodrag nopan" style={wireVar}>
               <rect
                 x={cx - (o === 'h' ? 9 : 3)}
                 y={cy - (o === 'h' ? 3 : 9)}

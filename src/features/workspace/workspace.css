@@ -19,17 +19,18 @@
 .ctx { position: fixed; z-index: 20; min-width: 180px; background: #fff; border: 1px solid #ccc; border-radius: 6px; box-shadow: 0 4px 16px #0003; padding: 4px; display: flex; flex-direction: column; }
 .ctx button { cursor: pointer; display: flex; align-items: center; gap: 8px; text-align: left; border: 0; background: none; padding: 6px 10px; border-radius: 4px; }
 .ctx button:disabled { cursor: default; }
-.ctx button:hover:not(:disabled) { background: #eef2ff; }
+.ctx button:hover:not(:disabled) { background: #f1f5f9; }
+.ctx button:active:not(:disabled) { background: #e2e8f0; }
 .ctx button.danger { color: #b91c1c; }
-.bend { fill: #fff; stroke: #2563eb; stroke-width: 2; pointer-events: none; }
+.bend { fill: #fff; stroke: var(--wire, #111); stroke-width: 2; pointer-events: none; }
 /* react-flow edges use pointer-events:visibleStroke, so a fill-only shape never gets events */
 .bendhit { fill: transparent; cursor: move; pointer-events: all; }
 .bendhit.h { cursor: ns-resize; }
 .bendhit.v { cursor: ew-resize; }
-.bendwrap:hover .bend { fill: #2563eb; }
-.cap.moving { cursor: move; outline: 1px dashed #2563eb; background: #eff6ff; padding: 0 3px; margin: -1px -4px; }
+.bendwrap:hover .bend { fill: var(--wire, #111); }
+.cap.moving { cursor: move; outline: 1px dashed var(--accent); background: var(--accent-soft); padding: 0 3px; margin: -1px -4px; }
 /* a selected component: a dashed frame a few px outside it (clicks go through to the component) */
-.selbox { position: absolute; inset: -6px; border: 1px dashed #2563eb; border-radius: 3px; pointer-events: none; }
+.selbox { position: absolute; inset: -6px; border: 1px dashed var(--accent); border-radius: 3px; pointer-events: none; }
 .capval { font-size: 10px; color: #9ca3af; }
 .cap { position: absolute; font-size: 11px; color: #333; white-space: nowrap; }
 .missing { padding: 8px; border: 1px dashed red; color: red; }
@@ -44,7 +45,7 @@
 .ctx-item:hover > .ctx.sub { display: flex; }
 .ctx button.has-sub { justify-content: space-between; gap: 12px; width: 100%; }
 .ctx .lbl { display: flex; align-items: center; gap: 8px; }
-.ctx-item:hover > button.has-sub { background: #eef2ff; }
+.ctx-item:hover > button.has-sub { background: #f1f5f9; }
 /* one panel over the top-left of the canvas: the project name, then the wire / export buttons, all 28px high */
 .projbar { position: absolute; top: 10px; left: 12px; z-index: 6; display: flex; align-items: center; gap: 4px; padding: 3px 6px; border-radius: 8px; background: #ffffffd9; box-shadow: 0 1px 4px #0f172a22; }
 .projsep { width: 1px; height: 18px; margin: 0 4px; background: #e2e8f0; }

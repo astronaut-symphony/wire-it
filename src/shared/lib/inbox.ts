@@ -4,8 +4,8 @@ import type { Component } from '@/shared/types';
 
 // The component editor runs in its own tab and hands finished components to the canvas tab through
 // IndexedDB (so nothing is lost if the canvas tab is closed meanwhile) plus a BroadcastChannel ping.
-const KEY = 'tinker-part-inbox';
-export const CHANNEL = 'tinker-part';
+const KEY = 'wire-it-inbox';
+export const CHANNEL = 'wire-it';
 
 export async function sendComponent(c: Component) {
   await update<Component[]>(KEY, (v) => [...(v ?? []), c]);
@@ -22,7 +22,7 @@ export async function takeComponents(): Promise<Component[]> {
 }
 
 // The "new component" dialog on the canvas page hands its name and image to the editor tab the same way.
-const DRAFT = 'tinker-part-draft';
+const DRAFT = 'wire-it-draft';
 export type Draft = { name: string; img: Imported };
 
 export const stashDraft = (d: Draft) => set(DRAFT, d);

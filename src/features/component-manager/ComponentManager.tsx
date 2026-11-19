@@ -50,7 +50,7 @@ export function ComponentManager({ customs, used, onChange, onBack }: Props) {
     if (!exporting) return;
     const c = { ...exporting, author: author.trim() || undefined, description: desc.trim() || undefined };
     onChange(customs.map((x) => (x.id === c.id ? c : x)));
-    download(`${c.name.trim() || 'component'}.tinker.json`, JSON.stringify(serializeComponents([c])), 'application/json');
+    download(`${c.name.trim() || 'component'}.wire-it.json`, JSON.stringify(serializeComponents([c])), 'application/json');
     setExporting(null);
   };
 
@@ -82,9 +82,11 @@ export function ComponentManager({ customs, used, onChange, onBack }: Props) {
                         Edit
                       </Menu.Item>
                     )}
-                    <Menu.Item leftSection={<Upload size={14} />} onClick={() => startExport(c)}>
-                      Export
-                    </Menu.Item>
+                    {!c.imported && (
+                      <Menu.Item leftSection={<Upload size={14} />} onClick={() => startExport(c)}>
+                        Export
+                      </Menu.Item>
+                    )}
                     <Menu.Item color="red" leftSection={<Trash2 size={14} />} disabled={used.has(c.id)} onClick={() => onChange(customs.filter((x) => x.id !== c.id))}>
                       {used.has(c.id) ? 'Delete (in use)' : 'Delete'}
                     </Menu.Item>
@@ -109,7 +111,7 @@ export function ComponentManager({ customs, used, onChange, onBack }: Props) {
               <ArrowLeft size={16} />
             </ActionIcon>
             <div>
-              <Title order={2}>Manage components</Title>
+              <Title order={2} c="var(--accent-text)">Manage components</Title>
             </div>
           </Group>
           <Group gap="xs">
@@ -143,7 +145,7 @@ export function ComponentManager({ customs, used, onChange, onBack }: Props) {
       >
         <Stack gap="sm">
           <TextInput data-autofocus label="Author" placeholder="Optional" value={author} onChange={(e) => setAuthor(e.currentTarget.value)} />
-          <Textarea label="Description" placeholder="Optional" autosize minRows={2} maxRows={5} value={desc} onChange={(e) => setDesc(e.currentTarget.value)} />
+          <Textarea label="Description" placeholder="Optional" rows={4} resize="vertical" value={desc} onChange={(e) => setDesc(e.currentTarget.value)} />
         </Stack>
       </AppModal>
     </div>

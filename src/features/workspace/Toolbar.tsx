@@ -1,5 +1,5 @@
 import { ActionIcon, ColorSwatch, Menu } from '@mantine/core';
-import { Angle, Download, FileJson, FileSpreadsheet, Image } from 'lucide-react';
+import { Download, FileJson, FileSpreadsheet, Image } from 'lucide-react';
 import '@/features/workspace/workspace.css';
 
 export const WIRE_COLORS = ['#e03131', '#f08c00', '#f2c200', '#2f9e44', '#0c8599', '#1c7ed6', '#7048e8', '#8d5524', '#868e96', '#111111'];
@@ -21,6 +21,17 @@ type Props = {
   canExportPng: boolean;
   canExportCsv: boolean;
 };
+
+/** Two pins and the wire between them: bending at right angles (on) or at any angle (off). The icon is the state, so the button needs no highlight. */
+function WireIcon({ ortho }: { ortho: boolean }) {
+  return (
+    <svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <path d={ortho ? 'M4 18h8V6h8' : 'M4 18 11 6l9 12'} />
+      <circle cx="4" cy="18" r="1.5" />
+      <circle cx="20" cy={ortho ? 6 : 18} r="1.5" />
+    </svg>
+  );
+}
 
 const SIZE = 28; // same height as the project name next to them
 
@@ -45,13 +56,13 @@ export function Toolbar(p: Props) {
       <ActionIcon
         size={SIZE}
         variant="subtle"
-        c={p.ortho ? 'blue' : 'gray.5'} // on = blue icon, off = light gray like a disabled one; no filled background
-        aria-label="Right angles"
+        color="gray"
+        aria-label={p.ortho ? 'Right angles: on' : 'Right angles: off'}
         aria-pressed={p.ortho}
-        title="Right angles"
+        title={p.ortho ? 'Right angles (on): click for free angles' : 'Free angles (right angles off): click to turn on'}
         onClick={() => p.onOrtho(!p.ortho)}
       >
-        <Angle size={16} />
+        <WireIcon ortho={p.ortho} />
       </ActionIcon>
       <Menu position="bottom-start" clickOutsideEvents={['pointerdown']}>
         <Menu.Target>

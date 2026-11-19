@@ -1,4 +1,4 @@
-# Tinker part
+# Wire it
 
 Wiring diagram sketcher built around **custom components**: draw your own part
 (any pin count, pitch, side, label, or imported SVG), drop it on a canvas, and

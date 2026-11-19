@@ -1,10 +1,12 @@
 /* Component editor page (own tab): top bar, dotted canvas with a tool bar under it, pin list on the right */
-.cepage { --line: #e2e8f0; --ink: #1e293b; --mute: #64748b; --brand: #2563eb; display: flex; flex-direction: column; height: 100%; color: var(--ink); background: #fff; }
+.cepage { --line: #e2e8f0; --ink: #1e293b; --mute: #64748b; --brand: #c2570c; /* the same orange as the primary buttons elsewhere (shade 7 of the theme) */ display: flex; flex-direction: column; height: 100%; color: var(--ink); background: #fff; }
 .cepage .spacer { flex: 1; }
 .cepage button, .cepage .btn { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border: 1px solid #cbd5e1; border-radius: 6px; background: #fff; color: var(--ink); font-size: 12px; font-weight: 500; cursor: pointer; }
 .cepage button:hover:not(:disabled), .cepage .btn:hover { background: #f1f5f9; }
 .cepage button.primary, .cepage .btn.primary { background: var(--brand); border-color: var(--brand); color: #fff; font-weight: 600; }
-.cepage button.primary:hover:not(:disabled) { background: #1d4ed8; }
+.cepage button.primary:hover:not(:disabled) { background: #a64708; border-color: #a64708; }
+.cepage button.primary:active:not(:disabled) { background: #843806; border-color: #843806; }
+.cepage button:active:not(:disabled) { background: #e2e8f0; }
 .cepage button:disabled { opacity: 0.5; cursor: default; }
 .cepage button.danger { border-color: #fecaca; background: #fef2f2; color: #b91c1c; }
 .cepage button.danger:hover:not(:disabled) { background: #fee2e2; }
@@ -20,7 +22,7 @@
 .cemain { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; }
 .cecanvas { position: relative; flex: 1; min-height: 240px; display: flex; background: #f8fafc; }
 .ceempty { margin: auto; color: var(--mute); }
-.cechip { padding: 6px 16px; border-top: 1px solid #bfdbfe; background: #eff6ff; color: #1d4ed8; font-size: 12px; }
+.cechip { padding: 6px 16px; border-top: 1px solid #fdd09b; background: var(--accent-soft); color: var(--accent-text); font-size: 12px; }
 .ceview { flex: 1; overflow: auto; display: flex; }
 /* auto margins centre the image, and unlike justify/align-center they never clip it when it is zoomed past the view */
 .cepad { position: relative; flex: none; margin: auto; padding: 48px 24px 24px; }
@@ -43,7 +45,7 @@
 .phead span:first-child { padding-left: 9px; }
 .phead span:nth-child(2) { padding-left: 7px; }
 .pghead button.add { padding: 2px; border-color: transparent; color: #94a3b8; }
-.pghead button.add:hover { color: #1d4ed8; background: #eff6ff; }
+.pghead button.add:hover { color: var(--accent-text); background: var(--accent-soft); }
 .prow { padding: 2px; }
 .pgroup { margin-bottom: 12px; padding: 8px; border: 1px solid var(--line); border-radius: 8px; cursor: pointer; }
 .pgroup.sel { border-color: #93c5fd; background: #f8fbff; }
@@ -70,12 +72,12 @@
 .addpins .field:last-child { margin-bottom: 0; }
 .addpins .seg { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
 .addpins .seg button { height: 32px; display: inline-flex; align-items: center; justify-content: center; gap: 6px; border: 1px solid #cbd5e1; border-radius: 6px; background: #fff; color: var(--ink); font-size: 12px; cursor: pointer; }
-.addpins .seg button.on { border-color: #2563eb; background: #eff6ff; color: #1d4ed8; }
+.addpins .seg button.on { border-color: var(--accent); background: var(--accent-soft); color: var(--accent-text); }
 /* a pin: the dot (blue when its group is selected), the orange line the wire leaves along, and its label */
 .pdot { position: absolute; width: 10px; height: 10px; margin: -5px 0 0 -5px; border-radius: 50%; background: #f5b700; border: 1px solid #333; cursor: pointer; }
-.pdot.sel { background: #60a5fa; border-color: #1d4ed8; }
+.pdot.sel { background: var(--accent); border-color: var(--accent-text); }
 .pdot .dir { position: absolute; left: 4px; top: 3px; width: 14px; height: 2px; background: #f97316; transform-origin: 0 50%; pointer-events: none; }
-.grab { position: absolute; width: 18px; height: 18px; margin: -9px 0 0 -9px; border-radius: 50%; border: 2px solid #2563eb; background: #fffc; cursor: move; z-index: 2; touch-action: none; }
+.grab { position: absolute; width: 18px; height: 18px; margin: -9px 0 0 -9px; border-radius: 50%; border: 2px solid var(--accent); background: #fffc; cursor: move; z-index: 2; touch-action: none; }
 /* pin label: starts where the orange line ends (17px from the pin) and is written the way the wire runs:
    horizontal (right, left) reads like normal text; vertical (down, up) reads bottom to top, from the right side; a free pin goes across its header, out of the component */
 .plbl { position: absolute; left: 50%; top: 50%; transform-origin: 0 0; font: 600 10px/1 system-ui, sans-serif; text-decoration: none; color: #0f172a; background: #fffd; border-radius: 2px; padding: 1px 2px; white-space: nowrap; pointer-events: none; z-index: 1; }
@@ -83,7 +85,7 @@
 .plbl.left { transform: translate(calc(-100% - 17px), -50%); }
 .plbl.down { transform: translate(0, 17px) rotate(-90deg) translate(-100%, -50%); }
 .plbl.up { transform: translate(0, -17px) rotate(-90deg) translate(0, -50%); }
-.pdot.sel .plbl { color: #1d4ed8; }
+.pdot.sel .plbl { color: var(--accent-text); }
 /* alignment guides while a pin group snaps to existing pins */
 .guide { position: absolute; pointer-events: none; z-index: 1; }
 .guide.v { top: 0; bottom: 0; width: 0; border-left: 1px dashed #f43f5e; }

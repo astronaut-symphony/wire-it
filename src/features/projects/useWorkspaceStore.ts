@@ -8,8 +8,8 @@ import { changedComponents, dropDeadWires, fromLegacy, nextName, parseProject, p
 import { parseRoute, routePath, type Route } from './route';
 
 const LEGACY_KEY = 'wiring-project'; // single-project autosave from before there were several projects
-const KEY = 'tinker-part-workspace';
-const OLD_KEY = 'wiring-workspace'; // same format, from before the rename to Tinker part
+const KEY = 'wire-it-workspace';
+const OLD_KEY = 'wiring-workspace'; // same format, from before the first rename
 
 /** The saved workspace as the other tab (the component editor) sees it. */
 export async function readWorkspace(): Promise<Workspace | undefined> {

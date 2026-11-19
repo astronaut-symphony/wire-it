@@ -68,7 +68,7 @@ function Shell() {
 
   const { customs, setCustoms, activeId, active, ready, route, go, synced, newProject, deleteProject, renameProject, importProject, review, acceptReview, notice, setNotice } =
     useWorkspaceStore(nodes, edges, setNodes, setEdges);
-  const fileBase = (active?.name || 'tinker-part').replace(/[\\/:*?"<>|]/g, '_'); // export files are named after the project
+  const fileBase = (active?.name || 'wire-it').replace(/[\\/:*?"<>|]/g, '_'); // export files are named after the project
 
   const comps = useMemo(() => new Map([...customs, ...BUILTINS].map((c) => [c.id, c])), [customs]);
   const selected = edges.filter((e) => e.selected);

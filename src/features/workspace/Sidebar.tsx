@@ -42,7 +42,7 @@ export function Sidebar({ customs, onHome, onManage }: { customs: Component[]; o
         ))}
       </div>
       <Text size="xs" c="dimmed">
-        © {new Date().getFullYear()} Tinker part
+        © {new Date().getFullYear()} Wire it
       </Text>
     </aside>
   );
