@@ -1,10 +1,10 @@
 import { Anchor, Badge, Container, Divider, Group, Stack, Text } from '@mantine/core';
-import { ExternalLink, GitPullRequest, Lightbulb } from 'lucide-react';
+import { GitPullRequest, Lightbulb, Star } from 'lucide-react';
 import { Brand } from '@/shared/components/Brand';
 
 export const REPO = 'https://github.com/astronaut-symphony/wire-it';
 const LINKS = [
-  { href: REPO, icon: <ExternalLink size={14} />, text: 'View the source on GitHub' },
+  { href: REPO, icon: <Star size={14} />, text: 'Enjoying Wire it? Give it a star on GitHub' },
   { href: `${REPO}/issues`, icon: <Lightbulb size={14} />, text: 'Have an idea or found a bug? Let us know' },
   { href: `${REPO}/pulls`, icon: <GitPullRequest size={14} />, text: 'Want to help? Contribute to the project' },
 ];

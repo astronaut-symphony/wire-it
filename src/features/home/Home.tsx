@@ -31,6 +31,21 @@ export function Home({ projects, onOpen, onNew, onRename, onDelete, onImport }: 
     close();
   };
 
+  const openJson = (
+    <FileButton onChange={(f) => f && onImport(f)} accept="application/json,.json">
+      {(props) => (
+        <Button {...props} variant="default" leftSection={<FileInput size={16} />}>
+          Open JSON
+        </Button>
+      )}
+    </FileButton>
+  );
+  const newProject = (
+    <Button leftSection={<Plus size={16} />} onClick={startNew}>
+      New project
+    </Button>
+  );
+
   return (
     <div className="home">
       <RepoInfo />
@@ -38,18 +53,12 @@ export function Home({ projects, onOpen, onNew, onRename, onDelete, onImport }: 
         <div>
         <Group justify="space-between" align="flex-end" mb="lg">
           <Title order={2} c="var(--accent-text)">Your projects</Title>
-          <Group gap="xs">
-            <FileButton onChange={(f) => f && onImport(f)} accept="application/json,.json">
-              {(props) => (
-                <Button {...props} variant="default" leftSection={<FileInput size={16} />}>
-                  Open JSON
-                </Button>
-              )}
-            </FileButton>
-            <Button leftSection={<Plus size={16} />} onClick={startNew}>
-              New project
-            </Button>
-          </Group>
+          {projects.length > 0 && ( // with no projects the same buttons are in the empty-state box below
+            <Group gap="xs">
+              {openJson}
+              {newProject}
+            </Group>
+          )}
         </Group>
 
         {projects.length === 0 ? (
@@ -60,9 +69,10 @@ export function Home({ projects, onOpen, onNew, onRename, onDelete, onImport }: 
               <Text c="dimmed" size="sm">
                 Create your first project to start placing components and wiring them up.
               </Text>
-              <Button mt="xs" leftSection={<Plus size={16} />} onClick={startNew}>
-                New project
-              </Button>
+              <Group gap="xs" mt="xs">
+                {openJson}
+                {newProject}
+              </Group>
             </Stack>
           </Card>
         ) : (
