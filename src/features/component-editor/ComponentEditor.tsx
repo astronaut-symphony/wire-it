@@ -76,7 +76,11 @@ export function ComponentEditor({ id }: { id: string }) { // id 'new' starts fro
   const sg = groups.find((g) => g.id === sel);
 
   useEffect(() => {
-    document.title = id === 'new' ? 'New component' : 'Edit component';
+    const edit = name.trim() ? `Edit ${name.trim()}` : 'Edit component';
+    document.title = `Wire it | ${id === 'new' ? 'New component' : edit}`;
+  }, [id, name]);
+
+  useEffect(() => {
     if (id === 'new') {
       void takeDraft().then((d) => {
         if (!d) return;

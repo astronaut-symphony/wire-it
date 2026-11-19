@@ -45,6 +45,7 @@ import { Toolbar, WIRE_COLORS } from '@/features/workspace/Toolbar';
 import { compSize, rotPt, snapByPin } from '@/shared/lib/geometry';
 import type { Component } from '@/shared/types';
 
+const HOME_TITLE = document.title; // the SEO title from index.html, shown on the home page
 const GRID = 5; // components snap to this grid by their pin 1
 const nodeTypes = { comp: ComponentNode, junction: JunctionNode };
 const edgeTypes = { wire: WireEdge };
@@ -277,6 +278,11 @@ function Shell() {
   }, [nodes, edges, fitBounds]);
 
   const inWorkspace = ready && route.kind === 'project' && route.id === activeId;
+
+  useEffect(() => {
+    const page = route.kind === 'home' ? '' : route.kind === 'components' ? 'Components' : active?.name ?? '';
+    document.title = page ? `Wire it | ${page}` : HOME_TITLE;
+  }, [route.kind, active?.name]);
 
   return (
     <Comps.Provider value={comps}>
