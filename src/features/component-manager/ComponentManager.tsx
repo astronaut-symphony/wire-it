@@ -23,6 +23,7 @@ type Props = {
 export function ComponentManager({ customs, used, onChange, onBack }: Props) {
   const [creating, setCreating] = useState(false);
   const [msg, setMsg] = useState('');
+  const [deleting, setDeleting] = useState<Component | null>(null); // one of your own, waiting for the confirmation
   const [exporting, setExporting] = useState<Component | null>(null);
   const [author, setAuthor] = useState('');
   const [desc, setDesc] = useState('');
@@ -53,6 +54,8 @@ export function ComponentManager({ customs, used, onChange, onBack }: Props) {
     download(`${c.name.trim() || 'component'}.wire-it.json`, JSON.stringify(serializeComponents([c])), 'application/json');
     setExporting(null);
   };
+
+  const remove = (c: Component) => onChange(customs.filter((x) => x.id !== c.id));
 
   const section = (title: string, list: Component[], empty: string) => (
     <section>
@@ -87,7 +90,7 @@ export function ComponentManager({ customs, used, onChange, onBack }: Props) {
                         Export
                       </Menu.Item>
                     )}
-                    <Menu.Item color="red" leftSection={<Trash2 size={14} />} disabled={used.has(c.id)} onClick={() => onChange(customs.filter((x) => x.id !== c.id))}>
+                    <Menu.Item color="red" leftSection={<Trash2 size={14} />} disabled={used.has(c.id)} onClick={() => (c.imported ? remove(c) : setDeleting(c))}>
                       {used.has(c.id) ? 'Delete (in use)' : 'Delete'}
                     </Menu.Item>
                   </Menu.Dropdown>
@@ -131,6 +134,35 @@ export function ComponentManager({ customs, used, onChange, onBack }: Props) {
         <input ref={fileRef} type="file" accept=".json,application/json" hidden onChange={(e) => (void importFile(e.target.files?.[0]), (e.target.value = ''))} />
       </Container>
       <NewComponentModal opened={creating} onClose={() => setCreating(false)} />
+      <AppModal
+        opened={!!deleting}
+        onClose={() => setDeleting(null)}
+        title="Delete component"
+        size="sm"
+        footer={
+          <>
+            <Button variant="default" onClick={() => setDeleting(null)}>Cancel</Button>
+            <Button
+              color="red"
+              onClick={() => {
+                if (deleting) remove(deleting);
+                setDeleting(null);
+              }}
+            >
+              Delete
+            </Button>
+          </>
+        }
+      >
+        <Stack gap="sm">
+          <Text size="sm">
+            Delete <b>{deleting?.name}</b>? It is removed from this browser and cannot be brought back.
+          </Text>
+          <Text size="sm" c="dimmed">
+            Even if you exported it first, importing the file again adds it as an <b>imported</b> component, not one of your own, so it can no longer be edited.
+          </Text>
+        </Stack>
+      </AppModal>
       <AppModal
         opened={!!exporting}
         onClose={() => setExporting(null)}
